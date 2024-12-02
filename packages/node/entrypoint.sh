@@ -1,2 +1,2 @@
 #!/bin/bash
-exec yarn cli "$@"
+cd packages/node && exec pnpm cli "$@"
