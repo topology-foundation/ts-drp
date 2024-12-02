@@ -78,8 +78,8 @@ export class TopologyNetworkNode {
 			? this._config.bootstrap_peers
 			: [
 					// "/dns4/bootstrap1.topology.gg/tcp/443/wss/p2p/12D3KooWBu1pZ3v2u6tXSmkN35kiMLENpv3bEXcyT1GJTVhipAkG",
-					"/dns4/bootstrap2.topology.gg/tcp/443/wss/p2p/12D3KooWLGuTtCHLpd1SBHeyvzT3kHVe2dw8P7UdoXsfQHu8qvkf",
-					// "/ip4/0.0.0.0/tcp/50000/ws/p2p/12D3KooWC6sm9iwmYbeQJCJipKTRghmABNz1wnpJANvSMabvecwJ",
+					// "/dns4/bootstrap2.topology.gg/tcp/443/wss/p2p/12D3KooWLGuTtCHLpd1SBHeyvzT3kHVe2dw8P7UdoXsfQHu8qvkf",
+					"/ip4/0.0.0.0/tcp/50000/ws/p2p/12D3KooWC6sm9iwmYbeQJCJipKTRghmABNz1wnpJANvSMabvecwJ",
 				];
 
 		const _peerDiscovery = _bootstrapNodesList.length
@@ -96,7 +96,7 @@ export class TopologyNetworkNode {
 			identify: identify(),
 			pubsub: gossipsub(),
 			dht: kadDHT({
-				protocol: "/topology/lan/dht/1.0.0",
+				protocol: "/topology/dht/1.0.0",
 				kBucketSize: this._config?.bootstrap ? 40 : 20,
 				clientMode: false,
 				peerInfoMapper: removePublicAddressesMapper,
