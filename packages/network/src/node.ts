@@ -22,7 +22,11 @@ import type {
 	Stream,
 	StreamHandler,
 } from "@libp2p/interface";
-import { kadDHT, removePrivateAddressesMapper } from "@libp2p/kad-dht";
+import {
+	kadDHT,
+	passthroughMapper,
+	removePrivateAddressesMapper,
+} from "@libp2p/kad-dht";
 import { webRTC, webRTCDirect } from "@libp2p/webrtc";
 import { webSockets } from "@libp2p/websockets";
 import * as filters from "@libp2p/websockets/filters";
