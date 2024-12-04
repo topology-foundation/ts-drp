@@ -101,7 +101,7 @@ export class TopologyNetworkNode {
 				clientMode: false,
 				peerInfoMapper: (peerInfo) => {
 					log.info("::start::peerInfoMapper", peerInfo);
-					return passthroughMapper(peerInfo);
+					return removePrivateAddressesMapper(peerInfo);
 				},
 				querySelfInterval: 20000,
 				initialQuerySelfInterval: 10000,
@@ -186,12 +186,13 @@ export class TopologyNetworkNode {
 
 			// Dial non-local multiaddrs, then WebRTC multiaddrs
 			for (const address of sortedAddrs) {
-				try {
-					await this._node?.dial(address);
-					break;
-				} catch {
-					// ignore
-				}
+				// try {
+				// 	log.info("::start::peer::dial", address.toString());
+				// 	await this._node?.dial(address);
+				// 	break;
+				// } catch {
+				// 	// ignore
+				// }
 			}
 		});
 
