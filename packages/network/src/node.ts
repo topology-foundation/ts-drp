@@ -99,7 +99,10 @@ export class TopologyNetworkNode {
 				protocol: "/topology/dht/1.0.0",
 				kBucketSize: this._config?.bootstrap ? 40 : 20,
 				clientMode: false,
-				peerInfoMapper: removePrivateAddressesMapper,
+				peerInfoMapper: (peerInfo) => {
+					log.info("::start::peerInfoMapper", peerInfo);
+					return passthroughMapper(peerInfo);
+				},
 				querySelfInterval: 20000,
 				initialQuerySelfInterval: 10000,
 				allowQueryWithZeroPeers: false,
@@ -183,7 +186,12 @@ export class TopologyNetworkNode {
 
 			// Dial non-local multiaddrs, then WebRTC multiaddrs
 			for (const address of sortedAddrs) {
-				await this._node?.dial(address);
+				try {
+					await this._node?.dial(address);
+					break;
+				} catch {
+					// ignore
+				}
 			}
 		});
 
