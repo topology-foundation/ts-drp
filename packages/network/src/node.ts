@@ -26,6 +26,7 @@ import {
 	kadDHT,
 	passthroughMapper,
 	removePrivateAddressesMapper,
+	removePublicAddressesMapper,
 } from "@libp2p/kad-dht";
 import { webRTC, webRTCDirect } from "@libp2p/webrtc";
 import { webSockets } from "@libp2p/websockets";
@@ -100,11 +101,19 @@ export class TopologyNetworkNode {
 				kBucketSize: this._config?.bootstrap ? 40 : 20,
 				clientMode: false,
 				peerInfoMapper: (peerInfo) => {
-					log.info("::start::peerInfoMapper", peerInfo);
+					log.info("::start::dht::peerInfoMapper", peerInfo);
+					return removePublicAddressesMapper(peerInfo);
+				},
+				allowQueryWithZeroPeers: false,
+			}),
+			aminoDHT: kadDHT({
+				protocol: "/topology/aminoDHT/1.0.0",
+				kBucketSize: this._config?.bootstrap ? 40 : 20,
+				clientMode: false,
+				peerInfoMapper: (peerInfo) => {
+					log.info("::start::aminoDHT::peerInfoMapper", peerInfo);
 					return removePrivateAddressesMapper(peerInfo);
 				},
-				querySelfInterval: 20000,
-				initialQuerySelfInterval: 10000,
 				allowQueryWithZeroPeers: false,
 			}),
 		};
