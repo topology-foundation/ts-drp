@@ -104,6 +104,8 @@ export class TopologyNetworkNode {
 					log.info("::start::dht::peerInfoMapper", peerInfo);
 					return removePublicAddressesMapper(peerInfo);
 				},
+				querySelfInterval: 20000,
+				initialQuerySelfInterval: 10000,
 				allowQueryWithZeroPeers: false,
 			}),
 			aminoDHT: kadDHT({
@@ -114,6 +116,8 @@ export class TopologyNetworkNode {
 					log.info("::start::aminoDHT::peerInfoMapper", peerInfo);
 					return removePrivateAddressesMapper(peerInfo);
 				},
+				querySelfInterval: 20000,
+				initialQuerySelfInterval: 10000,
 				allowQueryWithZeroPeers: false,
 			}),
 		};
