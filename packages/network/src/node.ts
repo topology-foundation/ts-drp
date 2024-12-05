@@ -114,7 +114,7 @@ export class TopologyNetworkNode {
 				clientMode: false,
 				peerInfoMapper: (peerInfo) => {
 					log.info("::start::aminoDHT::peerInfoMapper", peerInfo);
-					return removePrivateAddressesMapper(peerInfo);
+					return peerInfo;
 				},
 				querySelfInterval: 20000,
 				initialQuerySelfInterval: 10000,
@@ -201,7 +201,7 @@ export class TopologyNetworkNode {
 			for (const address of sortedAddrs) {
 				// try {
 				// 	log.info("::start::peer::dial", address.toString());
-				// 	await this._node?.dial(address);
+				await this._node?.dial(address);
 				// 	break;
 				// } catch {
 				// 	// ignore
