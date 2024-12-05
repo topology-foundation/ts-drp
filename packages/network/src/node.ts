@@ -108,18 +108,6 @@ export class TopologyNetworkNode {
 				initialQuerySelfInterval: 10000,
 				allowQueryWithZeroPeers: false,
 			}),
-			aminoDHT: kadDHT({
-				protocol: "/topology/aminoDHT/1.0.0",
-				kBucketSize: this._config?.bootstrap ? 40 : 20,
-				clientMode: false,
-				peerInfoMapper: (peerInfo) => {
-					log.info("::start::aminoDHT::peerInfoMapper", peerInfo);
-					return peerInfo;
-				},
-				querySelfInterval: 20000,
-				initialQuerySelfInterval: 10000,
-				allowQueryWithZeroPeers: false,
-			}),
 		};
 
 		const _bootstrap_node_services = {
