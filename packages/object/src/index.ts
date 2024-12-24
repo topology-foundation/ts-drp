@@ -135,6 +135,7 @@ export class DRPObject implements IDRPObject {
 			nodeId: vertex.nodeId,
 			operation: vertex.operation,
 			dependencies: vertex.dependencies,
+			timestamp: vertex.timestamp,
 		});
 		this.vertices.push(serializedVertex);
 		this._notify("callFn", [serializedVertex]);
@@ -157,6 +158,7 @@ export class DRPObject implements IDRPObject {
 					vertex.operation,
 					vertex.dependencies,
 					vertex.nodeId,
+					vertex.timestamp,
 					vertex.signature,
 				);
 

@@ -89,6 +89,7 @@ export class HashGraph {
 				value: null,
 			},
 			dependencies: [],
+			timestamp: -1,
 			signature: "",
 		};
 		this.vertices.set(HashGraph.rootHash, rootVertex);
@@ -101,13 +102,15 @@ export class HashGraph {
 
 	addToFrontier(operation: Operation): Vertex {
 		const deps = this.getFrontier();
-		const hash = computeHash(this.nodeId, operation, deps);
+		const currentTimestamp = Date.now();
+		const hash = computeHash(this.nodeId, operation, deps, currentTimestamp);
 
 		const vertex: Vertex = {
 			hash,
 			nodeId: this.nodeId,
 			operation: operation ?? { type: OperationType.NOP },
 			dependencies: deps,
+			timestamp: currentTimestamp,
 			signature: "",
 		};
 
@@ -151,17 +154,29 @@ export class HashGraph {
 		operation: Operation,
 		deps: Hash[],
 		nodeId: string,
+		timestamp: number,
 		signature: string,
 	): Hash {
-		const hash = computeHash(nodeId, operation, deps);
+		const hash = computeHash(nodeId, operation, deps, timestamp);
 		if (this.vertices.has(hash)) {
 			return hash; // Vertex already exists
 		}
 
-		if (
-			!deps.every((dep) => this.forwardEdges.has(dep) || this.vertices.has(dep))
-		) {
-			throw new Error("Invalid dependency detected.");
+		for (const dep of deps) {
+			const vertex = this.vertices.get(dep);
+			if (vertex === undefined) {
+				throw new Error("Invalid dependency detected.");
+			}
+			if (vertex.timestamp > timestamp) {
+				// Vertex's timestamp must not be less than any of its dependencies' timestamps
+				throw new Error("Invalid timestamp detected.");
+			}
+		}
+
+		const currentTimestamp = Date.now();
+		if (timestamp > currentTimestamp) {
+			// Vertex created in the future is invalid
+			throw new Error("Invalid timestamp detected.");
 		}
 
 		const vertex: Vertex = {
@@ -169,6 +184,7 @@ export class HashGraph {
 			nodeId,
 			operation,
 			dependencies: deps,
+			timestamp,
 			signature,
 		};
 		this.vertices.set(hash, vertex);
@@ -502,12 +518,13 @@ export class HashGraph {
 	}
 }
 
-function computeHash<T>(
+function computeHash(
 	nodeId: string,
 	operation: Operation,
 	deps: Hash[],
+	timestamp: number,
 ): Hash {
-	const serialized = JSON.stringify({ operation, deps, nodeId });
+	const serialized = JSON.stringify({ operation, deps, nodeId, timestamp });
 	const hash = crypto.createHash("sha256").update(serialized).digest("hex");
 	return hash;
 }

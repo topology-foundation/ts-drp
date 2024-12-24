@@ -238,6 +238,7 @@ export async function verifyIncomingVertices(
 				value: vertex.operation?.value,
 			},
 			dependencies: vertex.dependencies,
+			timestamp: vertex.timestamp,
 			signature: vertex.signature,
 		};
 	});

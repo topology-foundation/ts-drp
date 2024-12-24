@@ -14,7 +14,8 @@ message Vertex {
   string node_id = 2;
   Operation operation = 3;
   repeated string dependencies = 4;
-  string signature = 5;
+  int64 timestamp = 5;
+  string signature = 6;
 }
 
 message DRPObjectBase {
