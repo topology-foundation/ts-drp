@@ -1,6 +1,7 @@
 import {
 	ActionType,
 	type DRP,
+	type DRPPublicCredential,
 	type IACL,
 	type ResolveConflictsType,
 	SemanticsType,
@@ -14,7 +15,7 @@ export class AddWinsSetWithACL<T> implements DRP {
 	acl: IACL & DRP;
 	semanticsType = SemanticsType.pair;
 
-	constructor(admins: Map<string, string>) {
+	constructor(admins: Map<string, DRPPublicCredential>) {
 		this.acl = new ACL(admins);
 		this.state = new Map<T, boolean>();
 	}

@@ -1,6 +1,7 @@
 import {
 	ActionType,
 	type DRP,
+	type DRPPublicCredential,
 	type IACL,
 	type ResolveConflictsType,
 	SemanticsType,
@@ -17,11 +18,11 @@ export class ACL implements IACL, DRP {
 	semanticsType = SemanticsType.pair;
 
 	private _conflictResolution: ACLConflictResolution;
-	private _admins: Map<string, string>;
-	private _writers: Map<string, string>;
+	private _admins: Map<string, DRPPublicCredential>;
+	private _writers: Map<string, DRPPublicCredential>;
 
 	constructor(
-		admins: Map<string, string>,
+		admins: Map<string, DRPPublicCredential>,
 		conflictResolution?: ACLConflictResolution,
 	) {
 		this._admins = new Map(Array.from(admins, ([key, value]) => [key, value]));
@@ -30,11 +31,15 @@ export class ACL implements IACL, DRP {
 			conflictResolution ?? ACLConflictResolution.RevokeWins;
 	}
 
-	private _grant(peerId: string, publicKey: string): void {
+	private _grant(peerId: string, publicKey: DRPPublicCredential): void {
 		this._writers.set(peerId, publicKey);
 	}
 
-	grant(senderId: string, peerId: string, publicKey: string): void {
+	grant(
+		senderId: string,
+		peerId: string,
+		publicKey: DRPPublicCredential,
+	): void {
 		if (!this.isAdmin(senderId)) {
 			throw new Error("Only admin nodes can grant permissions.");
 		}
@@ -65,7 +70,7 @@ export class ACL implements IACL, DRP {
 		return this._writers.has(peerId);
 	}
 
-	getPeerKey(peerId: string): string | undefined {
+	getPeerKey(peerId: string): DRPPublicCredential | undefined {
 		return this._writers.get(peerId);
 	}
 
