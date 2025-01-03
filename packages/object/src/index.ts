@@ -164,6 +164,11 @@ export class DRPObject implements IDRPObject {
 			}
 
 			try {
+				const drp = this._computeDRP(vertex.dependencies);
+				if (!this._checkWriterPermission(drp, vertex.peerId)) {
+					throw new Error(`${vertex.peerId} does not have write permission.`);
+				}
+
 				this.hashGraph.addVertex(
 					vertex.operation,
 					vertex.dependencies,
@@ -172,7 +177,8 @@ export class DRPObject implements IDRPObject {
 					vertex.signature,
 				);
 
-				this._setState(vertex);
+				this._applyOperation(drp, vertex.operation);
+				this._setState(vertex, this._getDRPState(drp));
 			} catch (e) {
 				missing.push(vertex.hash);
 			}
@@ -194,6 +200,13 @@ export class DRPObject implements IDRPObject {
 		for (const callback of this.subscriptions) {
 			callback(this, origin, vertices);
 		}
+	}
+
+	private _checkWriterPermission(drp: DRP, peerId: string): boolean {
+		if (drp.acl) {
+			return drp.acl.isWriter(peerId);
+		}
+		return true;
 	}
 
 	private _applyOperation(drp: DRP, operation: Operation) {
@@ -218,11 +231,10 @@ export class DRPObject implements IDRPObject {
 		target[methodName](...args);
 	}
 
-	private _computeState(
+	private _computeDRP(
 		vertexDependencies: Hash[],
 		vertexOperation?: Operation | undefined,
-		// biome-ignore lint: values can be anything
-	): Map<string, any> {
+	): DRP {
 		const subgraph: ObjectSet<Hash> = new ObjectSet();
 		const lca =
 			vertexDependencies.length === 1
@@ -256,6 +268,13 @@ export class DRPObject implements IDRPObject {
 			this._applyOperation(drp, vertexOperation);
 		}
 
+		return drp;
+	}
+
+	private _getDRPState(
+		drp: DRP,
+		// biome-ignore lint: values can be anything
+	): Map<string, any> {
 		const varNames: string[] = Object.keys(drp);
 		// biome-ignore lint: values can be anything
 		const newState: Map<string, any> = new Map();
@@ -265,9 +284,24 @@ export class DRPObject implements IDRPObject {
 		return newState;
 	}
 
-	private _setState(vertex: Vertex) {
-		const newState = this._computeState(vertex.dependencies, vertex.operation);
-		this.states.set(vertex.hash, { state: newState });
+	private _computeDRPState(
+		vertexDependencies: Hash[],
+		vertexOperation?: Operation | undefined,
+		// biome-ignore lint: values can be anything
+	): Map<string, any> {
+		const drp = this._computeDRP(vertexDependencies, vertexOperation);
+		return this._getDRPState(drp);
+	}
+
+	private _setState(
+		vertex: Vertex,
+		// biome-ignore lint: values can be anything
+		state?: Map<string, any>,
+	) {
+		this.states.set(vertex.hash, {
+			state:
+				state ?? this._computeDRPState(vertex.dependencies, vertex.operation),
+		});
 	}
 
 	private _updateDRPState() {
@@ -275,7 +309,7 @@ export class DRPObject implements IDRPObject {
 			return;
 		}
 		const currentDRP = this.drp as DRP;
-		const newState = this._computeState(this.hashGraph.getFrontier());
+		const newState = this._computeDRPState(this.hashGraph.getFrontier());
 		for (const [key, value] of newState.entries()) {
 			if (key in currentDRP && typeof currentDRP[key] !== "function") {
 				currentDRP[key] = value;
