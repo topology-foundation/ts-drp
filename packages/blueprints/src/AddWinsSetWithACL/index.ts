@@ -24,7 +24,7 @@ export class AddWinsSetWithACL<T> implements DRP {
 	}
 
 	add(sender: string, value: T): void {
-		if (this.acl && !this.acl.isWriter(sender)) {
+		if (this.acl && !this.acl.query_isWriter(sender)) {
 			throw new Error("Only writers can add values.");
 		}
 		this._add(value);
@@ -35,17 +35,17 @@ export class AddWinsSetWithACL<T> implements DRP {
 	}
 
 	remove(sender: string, value: T): void {
-		if (this.acl && !this.acl.isWriter(sender)) {
+		if (this.acl && !this.acl.query_isWriter(sender)) {
 			throw new Error("Only writers can remove values.");
 		}
 		this._remove(value);
 	}
 
-	contains(value: T): boolean {
+	query_contains(value: T): boolean {
 		return this.state.get(value) === true;
 	}
 
-	values(): T[] {
+	query_getValues(): T[] {
 		return Array.from(this.state.entries())
 			.filter(([_, exists]) => exists)
 			.map(([value, _]) => value);
@@ -61,15 +61,15 @@ export class AddWinsSetWithACL<T> implements DRP {
 			return { action: ActionType.Nop };
 
 		if (
-			this.acl?.operations.includes(vertices[0].operation.type) &&
-			this.acl?.operations.includes(vertices[0].operation.type)
+			["grant", "revoke"].includes(vertices[0].operation.type) &&
+			["grant", "revoke"].includes(vertices[1].operation.type)
 		) {
 			return this.acl.resolveConflicts(vertices);
 		}
 
 		if (
 			this.operations.includes(vertices[0].operation.type) &&
-			this.operations.includes(vertices[0].operation.type)
+			this.operations.includes(vertices[1].operation.type)
 		) {
 			return vertices[0].operation.type === "add"
 				? { action: ActionType.DropRight }

@@ -7,7 +7,6 @@ import {
 import { Pixel } from "./pixel";
 
 export class Canvas implements DRP {
-	operations: string[] = ["splash", "paint"];
 	semanticsType: SemanticsType = SemanticsType.pair;
 
 	width: number;
@@ -59,7 +58,7 @@ export class Canvas implements DRP {
 		this.canvas[offset[0]][offset[1]].paint(rgb);
 	}
 
-	pixel(x: number, y: number): Pixel {
+	query_pixel(x: number, y: number): Pixel {
 		return this.canvas[x][y];
 	}
 

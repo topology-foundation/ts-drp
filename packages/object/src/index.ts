@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import * as crypto from "node:crypto";
 import { Logger, type LoggerOptions } from "@ts-drp/logger";
 import {
@@ -16,15 +17,14 @@ export * from "./hashgraph/index.js";
 import { cloneDeep } from "es-toolkit";
 
 export interface IACL {
-	isWriter: (peerId: string) => boolean;
-	isAdmin: (peerId: string) => boolean;
+	query_isWriter: (peerId: string) => boolean;
+	query_isAdmin: (peerId: string) => boolean;
 	grant: (senderId: string, peerId: string, publicKey: string) => void;
 	revoke: (senderId: string, peerId: string) => void;
-	getPeerKey: (peerId: string) => string | undefined;
+	query_getPeerKey: (peerId: string) => string | undefined;
 }
 
 export interface DRP {
-	operations: string[];
 	semanticsType: SemanticsType;
 	resolveConflicts: (vertices: Vertex[]) => ResolveConflictsType;
 	acl?: IACL & DRP;
@@ -114,7 +114,14 @@ export class DRPObject implements IDRPObject {
 						: String(propKey);
 					return new Proxy(target[propKey as keyof object], {
 						apply(applyTarget, thisArg, args) {
-							if ((thisArg.operations as string[]).includes(propKey as string))
+							const callerName = new Error().stack
+								?.split("\n")[2]
+								?.trim()
+								.split(" ")[1];
+							if (
+								!(propKey as string).startsWith("query_") &&
+								!callerName?.startsWith("Proxy.")
+							)
 								obj.callFn(fullPropKey, args.length === 1 ? args[0] : args);
 							return Reflect.apply(applyTarget, thisArg, args);
 						},
@@ -137,8 +144,27 @@ export class DRPObject implements IDRPObject {
 
 	// biome-ignore lint: value can't be unknown because of protobuf
 	callFn(fn: string, args: any) {
+		const preOperationDRP = this._computeDRP(this.hashGraph.getFrontier());
+		const drp = cloneDeep(preOperationDRP);
+		this._applyOperation(drp, { type: fn, value: args });
+
+		let stateChanged = false;
+		for (const key of Object.keys(preOperationDRP)) {
+			try {
+				deepStrictEqual(preOperationDRP[key], drp[key]);
+			} catch (e) {
+				stateChanged = true;
+				break;
+			}
+		}
+
+		if (!stateChanged) {
+			return;
+		}
+
 		const vertex = this.hashGraph.addToFrontier({ type: fn, value: args });
-		this._setState(vertex);
+
+		this._setState(vertex, this._getDRPState(drp));
 
 		const serializedVertex = ObjectPb.Vertex.create({
 			hash: vertex.hash,
@@ -218,11 +244,10 @@ export class DRPObject implements IDRPObject {
 		target[methodName](...args);
 	}
 
-	private _computeState(
+	private _computeDRP(
 		vertexDependencies: Hash[],
 		vertexOperation?: Operation | undefined,
-		// biome-ignore lint: values can be anything
-	): Map<string, any> {
+	): DRP {
 		const subgraph: ObjectSet<Hash> = new ObjectSet();
 		const lca =
 			vertexDependencies.length === 1
@@ -256,6 +281,11 @@ export class DRPObject implements IDRPObject {
 			this._applyOperation(drp, vertexOperation);
 		}
 
+		return drp;
+	}
+
+	// biome-ignore lint: values can be anything
+	private _getDRPState(drp: DRP): Map<string, any> {
 		const varNames: string[] = Object.keys(drp);
 		// biome-ignore lint: values can be anything
 		const newState: Map<string, any> = new Map();
@@ -265,9 +295,21 @@ export class DRPObject implements IDRPObject {
 		return newState;
 	}
 
-	private _setState(vertex: Vertex) {
-		const newState = this._computeState(vertex.dependencies, vertex.operation);
-		this.states.set(vertex.hash, { state: newState });
+	private _computeDRPState(
+		vertexDependencies: Hash[],
+		vertexOperation?: Operation | undefined,
+		// biome-ignore lint: values can be anything
+	): Map<string, any> {
+		const drp = this._computeDRP(vertexDependencies, vertexOperation);
+		return this._getDRPState(drp);
+	}
+
+	// biome-ignore lint: values can be anything
+	private _setState(vertex: Vertex, state?: Map<string, any>) {
+		this.states.set(vertex.hash, {
+			state:
+				state ?? this._computeDRPState(vertex.dependencies, vertex.operation),
+		});
 	}
 
 	private _updateDRPState() {
@@ -275,7 +317,7 @@ export class DRPObject implements IDRPObject {
 			return;
 		}
 		const currentDRP = this.drp as DRP;
-		const newState = this._computeState(this.hashGraph.getFrontier());
+		const newState = this._computeDRPState(this.hashGraph.getFrontier());
 		for (const [key, value] of newState.entries()) {
 			if (key in currentDRP && typeof currentDRP[key] !== "function") {
 				currentDRP[key] = value;

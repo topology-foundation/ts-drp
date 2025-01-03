@@ -7,7 +7,6 @@ import {
 } from "@ts-drp/object";
 
 export class Chat implements DRP {
-	operations: string[] = ["addMessage"];
 	semanticsType: SemanticsType = SemanticsType.pair;
 	// store messages as strings in the format (timestamp, message, peerId)
 	messages: Set<string>;
@@ -27,7 +26,7 @@ export class Chat implements DRP {
 		this.messages.add(`(${timestamp}, ${message}, ${peerId})`);
 	}
 
-	getMessages(): Set<string> {
+	query_messages(): Set<string> {
 		return this.messages;
 	}
 
