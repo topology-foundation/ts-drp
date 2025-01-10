@@ -205,6 +205,10 @@ export class DRPNetworkNode {
 		);
 	}
 
+	async stop() {
+		await this._node?.stop();
+	}
+
 	subscribe(topic: string) {
 		if (!this._node) {
 			log.error("::subscribe: Node not initialized, please run .start()");
