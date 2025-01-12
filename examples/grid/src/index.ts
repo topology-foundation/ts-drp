@@ -6,7 +6,7 @@ import { hslToRgb, rgbToHex, rgbToHsl } from "./util/color";
 const node = new DRPNode({
 	network_config: import.meta.env.VITE_BOOTSTRAP_PEERS
 		? {
-				bootstrap_peers: [import.meta.env.VITE_BOOTSTRAP_PEERS],
+				bootstrap_peers: import.meta.env.VITE_BOOTSTRAP_PEERS.split(","),
 				discovery_interval: import.meta.env.VITE_DISCOVERY_INTERVAL,
 			}
 		: {},
