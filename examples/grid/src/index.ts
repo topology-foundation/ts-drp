@@ -7,6 +7,7 @@ const node = new DRPNode({
 	network_config: import.meta.env.VITE_BOOTSTRAP_PEERS
 		? {
 				bootstrap_peers: [import.meta.env.VITE_BOOTSTRAP_PEERS],
+				discovery_interval: import.meta.env.VITE_DISCOVERY_INTERVAL,
 			}
 		: {},
 });
@@ -216,11 +217,26 @@ async function main() {
 	await node.start();
 	render();
 
-	node.addCustomGroupMessageHandler("", () => {
+
+	node.addNodeEventListener("peer:connect", (e) => {
 		peers = node.networkNode.getAllPeers();
 		discoveryPeers = node.networkNode.getGroupPeers("drp::discovery");
 		render();
 	});
+
+	node.addPubsubEventListener("subscription-change", (e) => {
+		peers = node.networkNode.getAllPeers();
+		discoveryPeers = node.networkNode.getGroupPeers("drp::discovery");
+		render();
+	})
+
+	//node.addCustomGroupMessageHandler("", (e) => {
+	//	console.log("update peers", node.networkNode.getAllPeers());
+	//	console.log("event", e);
+	//	peers = node.networkNode.getAllPeers();
+	//	discoveryPeers = node.networkNode.getGroupPeers("drp::discovery");
+	//	render();
+	//});
 
 	const button_create = <HTMLButtonElement>(
 		document.getElementById("createGrid")
