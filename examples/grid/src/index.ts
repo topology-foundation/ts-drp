@@ -217,18 +217,23 @@ async function main() {
 	await node.start();
 	render();
 
-
 	node.addNodeEventListener("peer:connect", (e) => {
 		peers = node.networkNode.getAllPeers();
 		discoveryPeers = node.networkNode.getGroupPeers("drp::discovery");
+		console.log("peer:connect", e.detail.toString());
 		render();
 	});
 
 	node.addPubsubEventListener("subscription-change", (e) => {
 		peers = node.networkNode.getAllPeers();
 		discoveryPeers = node.networkNode.getGroupPeers("drp::discovery");
+		console.log(
+			"subscription-change",
+			e.detail.peerId.toString(),
+			JSON.stringify(e.detail.subscriptions),
+		);
 		render();
-	})
+	});
 
 	//node.addCustomGroupMessageHandler("", (e) => {
 	//	console.log("update peers", node.networkNode.getAllPeers());
