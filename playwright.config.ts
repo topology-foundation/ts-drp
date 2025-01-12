@@ -40,7 +40,14 @@ export default defineConfig({
 		},
 		{
 			name: "firefox",
-			use: { ...devices["Desktop Firefox"] },
+			use: {
+				...devices["Desktop Firefox"],
+				launchOptions: {
+					firefoxUserPrefs: {
+						"media.peerconnection.ice.link_local": true,
+					},
+				},
+			},
 		},
 		{
 			name: "webkit",
