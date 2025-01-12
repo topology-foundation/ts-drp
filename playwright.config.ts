@@ -87,6 +87,8 @@ export default defineConfig({
 		{
 			command: "pnpm cli --config configs/local-bootstrap.json",
 			reuseExistingServer: !process.env.CI,
+			stderr: "pipe",
+			stdout: "pipe",
 		},
 	],
 });
