@@ -27,8 +27,7 @@ async function getGlowingPeer(page: Page) {
 
 test("should work with vite server", async ({ browser }) => {
 	const page1 = await browser.newPage();
-
-	
+	console.log("browser is ", browser.browserType().name(), browser.version());
 	await page1.goto("/");
 	await expect(page1).toHaveTitle(/DRP - Grid/);
 	
