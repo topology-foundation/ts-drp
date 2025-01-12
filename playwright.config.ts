@@ -38,21 +38,21 @@ export default defineConfig({
 			name: "chromium",
 			use: { ...devices["Desktop Chrome"] },
 		},
-		{
-			name: "firefox",
-			use: {
-				...devices["Desktop Firefox"],
-				launchOptions: {
-					firefoxUserPrefs: {
-						"media.peerconnection.ice.link_local": true,
-						"media.peerconnection.ice.loopback": true,
-						"media.peerconnection.ice.no_host": true,
-						"browser.aboutConfig.showWarning": false,
-						"media.peerconnection.ice.tcp": false,
-					},
-				},
-			},
-		},
+		//{
+		//	name: "firefox",
+		//	use: {
+		//		...devices["Desktop Firefox"],
+		//		launchOptions: {
+		//			firefoxUserPrefs: {
+		//				"media.peerconnection.ice.link_local": true,
+		//				"media.peerconnection.ice.loopback": true,
+		//				"media.peerconnection.ice.no_host": true,
+		//				"browser.aboutConfig.showWarning": false,
+		//				"media.peerconnection.ice.tcp": false,
+		//			},
+		//		},
+		//	},
+		//},
 		{
 			name: "webkit",
 			use: { ...devices["Desktop Safari"] },
@@ -70,8 +70,7 @@ export default defineConfig({
 			timeout: 10000,
 			env: {
 				VITE_BOOTSTRAP_PEERS: [
-					//"/ip4/127.0.0.1/tcp/50000/ws/p2p/12D3KooWC6sm9iwmYbeQJCJipKTRghmABNz1wnpJANvSMabvecwJ",
-					"/dns4/bootstrap2.topology.gg/tcp/50000/ws/p2p/12D3KooWLGuTtCHLpd1SBHeyvzT3kHVe2dw8P7UdoXsfQHu8qvkf",
+					"/ip4/127.0.0.1/tcp/50000/ws/p2p/12D3KooWC6sm9iwmYbeQJCJipKTRghmABNz1wnpJANvSMabvecwJ",
 				].join(","),
 				VITE_DISCOVERY_INTERVAL: "1000",
 			},

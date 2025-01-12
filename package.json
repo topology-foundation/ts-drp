@@ -22,7 +22,7 @@
 		"cli": "tsx ./packages/node/src/run.ts",
 		"coverage": "pnpm exec ts-node scripts/coverage.ts",
 		"docs": "typedoc",
-		"e2e-test": "pnpm exec playwright test",
+		"e2e-test": "find . -path '*/node_modules/*' -type f -exec sed -i \"s/const peerConnection = new RTCPeerConnection(rtcConfiguration);/console.log('initiating connection', JSON.stringify(rtcConfiguration));\\nconst peerConnection = new RTCPeerConnection(rtcConfiguration);/g\" {} + && pnpm exec playwright test",
 		"postinstall": "pnpm build:packages",
 		"proto-gen": "pnpm proto-gen:object && pnpm proto-gen:network",
 		"proto-gen:network": "buf generate packages/network/src/proto -o packages/network/src/proto",
