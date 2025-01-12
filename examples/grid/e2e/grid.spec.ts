@@ -28,10 +28,13 @@ async function getGlowingPeer(page: Page) {
 test("should work with vite server", async ({ browser }) => {
 	const page1 = await browser.newPage();
 
+	
 	await page1.goto("/");
 	await expect(page1).toHaveTitle(/DRP - Grid/);
-
+	
 	const page2 = await browser.newPage();
+	page1.on("console", (msg) => console.log("page1", msg.text()));
+	page2.on("console", (msg) => console.log("page2", msg.text()));
 	await page2.goto("/");
 	await expect(page2).toHaveTitle(/DRP - Grid/);
 	await expect(page1.locator(peerIdSelector)).not.toBeEmpty({ timeout: 10000 });
