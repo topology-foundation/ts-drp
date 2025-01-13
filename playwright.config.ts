@@ -38,20 +38,14 @@ export default defineConfig({
 			name: "chromium",
 			use: { ...devices["Desktop Chrome"] },
 		},
+		// for the moment firefox is not working in github actions
+		// https://bugzilla.mozilla.org/show_bug.cgi?id=1659672
+		// https://github.com/libp2p/js-libp2p/issues/2047#issuecomment-2585764533
+		// https://github.com/libp2p/js-libp2p/issues/2572
 		//{
 		//	name: "firefox",
 		//	use: {
 		//		...devices["Desktop Firefox"],
-		//		launchOptions: {
-		//			firefoxUserPrefs: {
-		//				"media.peerconnection.ice.link_local": true,
-		//				"media.peerconnection.ice.loopback": true,
-		//				"media.peerconnection.ice.no_host": true,
-		//				"browser.aboutConfig.showWarning": false,
-		//				"media.peerconnection.ice.tcp": false,
-		//			},
-		//		},
-		//	},
 		//},
 		{
 			name: "webkit",
