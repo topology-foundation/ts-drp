@@ -105,7 +105,6 @@ const renderDiscoveryPeers = () => {
 let isPeersOpen = false;
 
 const renderPeers = () => {
-	console.log("renderPeers", peers);
 	renderClickablePeerList(peers, isPeersOpen, "peers", () => {
 		isPeersOpen = !isPeersOpen;
 	});
@@ -289,6 +288,8 @@ async function moveUser(direction: string) {
 }
 
 async function createConnectHandlers() {
+	if (drpObject) objectPeers = node.networkNode.getGroupPeers(drpObject.id);
+
 	node.addCustomGroupMessageHandler(drpObject.id, () => {
 		if (drpObject) objectPeers = node.networkNode.getGroupPeers(drpObject.id);
 		render();
@@ -303,31 +304,27 @@ async function main() {
 	await node.start();
 	render();
 
-	node.addNodeEventListener("peer:connect", (e) => {
+	node.addNodeEventListener("peer:connect", () => {
 		peers = node.networkNode.getAllPeers();
 		discoveryPeers = node.networkNode.getGroupPeers("drp::discovery");
-		console.log("peer:connect", e.detail.toString());
+		render();
+	});
+
+	node.addNodeEventListener("peer:disconnect", () => {
+		peers = node.networkNode.getAllPeers();
+		discoveryPeers = node.networkNode.getGroupPeers("drp::discovery");
 		render();
 	});
 
 	node.addPubsubEventListener("subscription-change", (e) => {
 		peers = node.networkNode.getAllPeers();
 		discoveryPeers = node.networkNode.getGroupPeers("drp::discovery");
-		console.log(
-			"subscription-change",
-			e.detail.peerId.toString(),
-			JSON.stringify(e.detail.subscriptions),
-		);
+		if (e.detail.subscriptions.find((s) => s.topic === drpObject?.id)) {
+			objectPeers = node.networkNode.getGroupPeers(drpObject.id);
+		}
+
 		render();
 	});
-
-	//node.addCustomGroupMessageHandler("", (e) => {
-	//	console.log("update peers", node.networkNode.getAllPeers());
-	//	console.log("event", e);
-	//	peers = node.networkNode.getAllPeers();
-	//	discoveryPeers = node.networkNode.getGroupPeers("drp::discovery");
-	//	render();
-	//});
 
 	const button_create = <HTMLButtonElement>(
 		document.getElementById("createGrid")
