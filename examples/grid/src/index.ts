@@ -51,6 +51,105 @@ const getColorForPeerId = (id: string): string => {
 	return colorMap.get(id) || "#000000";
 };
 
+const renderClickablePeerList = (
+	peers: string[],
+	isOpen: boolean,
+	elementId: string,
+	callback: () => void,
+	defaultText = "[]",
+) => {
+	const element = <HTMLDivElement>document.getElementById(elementId);
+	const hasPeers = peers.length > 0;
+	if (!hasPeers) {
+		element.innerHTML = defaultText;
+		return;
+	}
+
+	element.innerHTML = `[${peers.map((peer) => `<strong style="color: ${getColorForPeerId(peer)};">${formatPeerId(peer)}</strong>`).join(", ")}]`;
+	element.style.cursor = "pointer";
+
+	const peersList = document.createElement("ul");
+	peersList.style.display = "none";
+	peersList.style.margin = "10px 0";
+	peersList.style.paddingLeft = "20px";
+
+	for (const peer of peers) {
+		const li = document.createElement("li");
+		li.innerHTML = `<strong style="color: ${getColorForPeerId(peer)};">${peer}</strong>`;
+		peersList.appendChild(li);
+	}
+
+	element.appendChild(peersList);
+
+	peersList.style.display = isOpen ? "block" : "none";
+	element.onclick = () => {
+		peersList.style.display =
+			peersList.style.display === "none" ? "block" : "none";
+		callback();
+	};
+};
+
+let isDiscoveryPeersOpen = false;
+
+const renderDiscoveryPeers = () => {
+	renderClickablePeerList(
+		discoveryPeers,
+		isDiscoveryPeersOpen,
+		"discoveryPeers",
+		() => {
+			isDiscoveryPeersOpen = !isDiscoveryPeersOpen;
+		},
+	);
+};
+
+let isPeersOpen = false;
+
+const renderPeers = () => {
+	console.log("renderPeers", peers);
+	renderClickablePeerList(peers, isPeersOpen, "peers", () => {
+		isPeersOpen = !isPeersOpen;
+	});
+};
+
+let isPeersInDRPOpen = false;
+
+const renderPeersInDRP = () => {
+	renderClickablePeerList(
+		objectPeers,
+		isPeersInDRPOpen,
+		"objectPeers",
+		() => {
+			isPeersInDRPOpen = !isPeersInDRPOpen;
+		},
+		"Your frens in GRID: []",
+	);
+};
+
+let isPeerIdExpanded = false;
+
+const renderPeerId = () => {
+	const element_peerId = <HTMLDivElement>document.getElementById("peerId");
+
+	const innerHtml = () => `
+	<strong id="peerIdExpanded" 
+			style="color: ${getColorForPeerId(node.networkNode.peerId)};
+				   ${isPeerIdExpanded ? "" : "display: none;"}">
+	  ${node.networkNode.peerId}
+	</strong>
+	<strong id="peerIdCollapsed" 
+			style="color: ${getColorForPeerId(node.networkNode.peerId)};
+				   ${!isPeerIdExpanded ? "" : "display: none;"}">
+	  ${formatPeerId(node.networkNode.peerId)}
+	</strong>`;
+
+	element_peerId.style.cursor = "pointer";
+	element_peerId.innerHTML = innerHtml();
+	element_peerId.onclick = () => {
+		isPeerIdExpanded = !isPeerIdExpanded;
+		element_peerId.innerHTML = innerHtml();
+	};
+};
+
 const render = () => {
 	if (drpObject) {
 		const gridIdTextElement = <HTMLSpanElement>(
@@ -70,23 +169,10 @@ const render = () => {
 		}
 	}
 
-	const element_peerId = <HTMLDivElement>document.getElementById("peerId");
-	element_peerId.innerHTML = `<strong style="color: ${getColorForPeerId(node.networkNode.peerId)};">${formatPeerId(node.networkNode.peerId)}</strong>`;
-
-	const element_peers = <HTMLDivElement>document.getElementById("peers");
-	element_peers.innerHTML = `[${peers.map((peer) => `<strong style="color: ${getColorForPeerId(peer)};">${formatPeerId(peer)}</strong>`).join(", ")}]`;
-
-	const element_discoveryPeers = <HTMLDivElement>(
-		document.getElementById("discoveryPeers")
-	);
-	element_discoveryPeers.innerHTML = `[${discoveryPeers.map((peer) => `<strong style="color: ${getColorForPeerId(peer)};">${formatPeerId(peer)}</strong>`).join(", ")}]`;
-
-	const element_objectPeers = <HTMLDivElement>(
-		document.getElementById("objectPeers")
-	);
-	element_objectPeers.innerHTML = !gridDRP
-		? ""
-		: `Your frens in GRID: [${objectPeers.map((peer) => `<strong style="color: ${getColorForPeerId(peer)};">${formatPeerId(peer)}</strong>`).join(", ")}]`;
+	renderPeerId();
+	renderPeers();
+	renderDiscoveryPeers();
+	renderPeersInDRP();
 
 	if (!gridDRP) return;
 	const users = gridDRP.query_users();
