@@ -79,8 +79,6 @@ export default defineConfig({
 			command: "pnpm cli --config configs/local-bootstrap.json",
 			url: "http://localhost:50000",
 			reuseExistingServer: !process.env.CI,
-			//stderr: "pipe",
-			//stdout: "pipe",
 		},
 	],
 });
