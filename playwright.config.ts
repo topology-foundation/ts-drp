@@ -70,7 +70,7 @@ export default defineConfig({
 			},
 		},
 		{
-			command: "pnpm cli --config configs/local-bootstrap.json",
+			command: "pnpm cli --config configs/e2e-bootstrap.json",
 			url: "http://localhost:50000",
 			reuseExistingServer: !process.env.CI,
 		},

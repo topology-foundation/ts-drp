@@ -28,7 +28,7 @@
 		"proto-gen:network": "buf generate packages/network/src/proto -o packages/network/src/proto",
 		"proto-gen:object": "buf generate packages/object/src/proto -o packages/object/src/proto",
 		"release": "release-it",
-		"test": "vitest --exclude=**/e2e",
+		"test": "vitest",
 		"watch": "pnpm --parallel --filter '@ts-drp/*' watch"
 	},
 	"devDependencies": {

@@ -9,7 +9,12 @@ export default defineConfig({
 			enabled: true,
 			reporter: ["text", "lcov"],
 			include: ["packages/**/*.{ts,tsx}"],
-			exclude: ["**/node_modules/**", "**/__tests__/**", "**/tests/**"],
+			exclude: [
+				"**/node_modules/**",
+				"**/__tests__/**",
+				"**/tests/**",
+				"**/e2e/**",
+			],
 		},
 	},
 });
