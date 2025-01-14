@@ -238,6 +238,8 @@ const render = () => {
 				div.style.border = "3px solid black";
 			}
 
+			div.setAttribute("data-glowing-peer-id", id);
+
 			// Create dynamic keyframes for the glow effect
 			const style = document.createElement("style");
 			style.innerHTML = `
