@@ -19,7 +19,10 @@ import { identify } from "@libp2p/identify";
 import type {
 	Ed25519PrivateKey,
 	EventCallback,
+	EventHandler,
+	Libp2pEvents,
 	PubSub,
+	ServiceMap,
 	Stream,
 	StreamHandler,
 } from "@libp2p/interface";
@@ -54,6 +57,7 @@ export interface DRPNetworkNodeConfig {
 	browser_metrics?: boolean;
 	private_key_seed?: string;
 	log_config?: LoggerOptions;
+	discovery_interval?: number;
 }
 
 export class DRPNetworkNode {
@@ -89,7 +93,7 @@ export class DRPNetworkNode {
 			: BOOTSTRAP_NODES;
 
 		const _pubsubPeerDiscovery = pubsubPeerDiscovery({
-			interval: 10_000,
+			interval: this._config?.discovery_interval || 10_000,
 			topics: ["drp::discovery"],
 		});
 
@@ -172,11 +176,12 @@ export class DRPNetworkNode {
 			this.peerId,
 		);
 
-		this._node.addEventListener("peer:connect", (e) =>
+		this.addNodeEventListener("peer:connect", (e) =>
 			log.info("::start::peer::connect", e.detail),
 		);
-		this._node.addEventListener("peer:discovery", async (e) => {
+		this.addNodeEventListener("peer:discovery", async (e) => {
 			// current bug in v11.0.0 requires manual dial (https://github.com/libp2p/js-libp2p-pubsub-peer-discovery/issues/149)
+			// TODO: use import { WebRTC, WebSockets, WebSocketsSecure, WebTransport, Circuit, QUIC, QUICV1, TCP } from '@multiformats/multiaddr-matcher'
 			const sortedAddrs = e.detail.multiaddrs.sort((a, b) => {
 				const localRegex =
 					/(^\/ip4\/127\.)|(^\/ip4\/10\.)|(^\/ip4\/172\.1[6-9]\.)|(^\/ip4\/172\.2[0-9]\.)|(^\/ip4\/172\.3[0-1]\.)|(^\/ip4\/192\.168\.)/;
@@ -324,6 +329,24 @@ export class DRPNetworkNode {
 		} catch (e) {
 			log.error("::sendMessageRandomTopicPeer:", e);
 		}
+	}
+
+	addNodeEventListener<K extends keyof Libp2pEvents<ServiceMap>>(
+		type: K,
+		listener: EventHandler<Libp2pEvents<ServiceMap>[K]> | null,
+		options?: boolean | AddEventListenerOptions,
+	): void {
+		if (!this._node) return;
+		this._node.addEventListener(type, listener, options);
+	}
+
+	addPubsubEventListener<K extends keyof GossipsubEvents>(
+		type: K,
+		listener: EventHandler<GossipsubEvents[K]> | null,
+		options?: boolean | AddEventListenerOptions,
+	): void {
+		if (!this._pubsub) return;
+		this._pubsub.addEventListener(type, listener, options);
 	}
 
 	addGroupMessageHandler(

@@ -22,6 +22,7 @@
 		"cli": "tsx ./packages/node/src/run.ts",
 		"coverage": "pnpm exec ts-node scripts/coverage.ts",
 		"docs": "typedoc",
+		"e2e-test": "pnpm exec playwright test",
 		"postinstall": "pnpm build:packages",
 		"proto-gen": "pnpm proto-gen:object && pnpm proto-gen:network",
 		"proto-gen:network": "buf generate packages/network/src/proto -o packages/network/src/proto",
@@ -32,6 +33,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.8.3",
+		"@playwright/test": "^1.49.1",
 		"@release-it-plugins/workspaces": "^4.2.0",
 		"@types/node": "^22.5.4",
 		"@vitest/coverage-v8": "2.1.8",
