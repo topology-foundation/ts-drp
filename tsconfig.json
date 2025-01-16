@@ -16,7 +16,7 @@
 		"stripInternal": true,
 		"resolveJsonModule": true,
 		"paths": {
-			"@topology-foundation/*": ["./packages/*"]
+			"@ts-drp/*": ["./packages/*"]
 		}
 	}
 }

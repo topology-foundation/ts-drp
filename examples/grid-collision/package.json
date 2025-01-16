@@ -1,9 +1,6 @@
 {
   "name": "topology-example-grid-collision",
-  "version": "0.2.1-0",
-  "description": "Topology Protocol Grid Example",
-  "main": "src/index.ts",
-  "repository": "https://github.com/topology-foundation/ts-topology.git",
+  "version": "0.6.0",
   "license": "MIT",
   "scripts": {
     "build": "vite build",
@@ -14,22 +11,12 @@
   "dependencies": {
     "@ts-drp/network": "0.6.0",
     "@ts-drp/node": "0.6.0",
-    "@ts-drp/object": "0.6.0",
-    "assemblyscript": "^0.27.29",
-    "crypto-browserify": "^3.12.0",
-    "memfs": "^4.11.1",
-    "process": "^0.11.10",
-    "react-spring": "^9.7.4",
-    "stream-browserify": "^3.0.0",
-    "ts-node": "^10.9.2",
-    "uint8arrays": "^5.1.0",
-    "vm-browserify": "^1.1.2"
+    "@ts-drp/object": "0.6.0"
   },
   "devDependencies": {
-    "@types/node": "^22.5.4",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.5.4",
-    "vite": "^5.4.9",
-    "vite-plugin-node-polyfills": "^0.22.0"
+		"@types/node": "^22.5.4",
+		"typescript": "^5.5.4",
+		"vite": "^6.0.2",
+		"vite-plugin-node-polyfills": "^0.22.0"
   }
 }

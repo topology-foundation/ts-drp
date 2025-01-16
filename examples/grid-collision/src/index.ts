@@ -1,10 +1,17 @@
-import { TopologyNode } from "@topology-foundation/node";
-import type { TopologyObject } from "@topology-foundation/object";
+import { DRPNode } from "@ts-drp/node";
+import type { DRPObject } from "@ts-drp/object";
 import { Grid } from "./objects/grid";
 import { hslToRgb, rgbToHex, rgbToHsl } from "./util/color";
 
-const node = new TopologyNode();
-let topologyObject: TopologyObject;
+const node = new DRPNode({
+	network_config: {
+		bootstrap_peers: [
+			'/ip4/0.0.0.0/tcp/50000/ws/p2p/12D3KooWC6sm9iwmYbeQJCJipKTRghmABNz1wnpJANvSMabvecwJ',
+		],
+		bootstrap: false
+	}
+});
+let topologyObject: DRPObject;
 let gridCRO: Grid;
 let peers: string[] = [];
 let discoveryPeers: string[] = [];
@@ -216,7 +223,7 @@ async function main() {
 	);
 	button_create.addEventListener("click", async () => {
 		topologyObject = await node.createObject(new Grid());
-		gridCRO = topologyObject.cro as Grid;
+		gridCRO = topologyObject.drp as Grid;
 		createConnectHandlers();
 		await addUser();
 		render();
@@ -233,7 +240,7 @@ async function main() {
 				undefined,
 				true,
 			);
-			gridCRO = topologyObject.cro as Grid;
+			gridCRO = topologyObject.drp as Grid;
 			createConnectHandlers();
 			await addUser();
 			render();

@@ -1,13 +1,13 @@
 import {
 	ActionType,
-	type CRO,
+	type DRP,
 	type Operation,
 	type ResolveConflictsType,
 	SemanticsType,
 	type Vertex,
-} from "@topology-foundation/object";
+} from "@ts-drp/object";
 
-export class Grid implements CRO {
+export class Grid implements DRP {
 	operations: string[] = ["addUser", "moveUser"];
 	semanticsType: SemanticsType = SemanticsType.pair;
 	positions: Map<string, { x: number; y: number }>;
@@ -22,6 +22,8 @@ export class Grid implements CRO {
 
 	private _addUser(userId: string, color: string): void {
 		const userColorString = `${userId}:${color}`;
+		// We should set a random coordinate, but here we don't.
+		// This is to simplify the logic for spawning.
 		this.positions.set(userColorString, { x: 0, y: 0 });
 	}
 
@@ -59,6 +61,7 @@ export class Grid implements CRO {
 		);
 		if (userColorString) {
 			const position = this.positions.get(userColorString);
+
 			if (position) {
 				const newPos = this._computeNewPosition(position, direction);
 				this.positions.set(userColorString, newPos);
@@ -84,53 +87,57 @@ export class Grid implements CRO {
 		// Here we implement compensation for the location.
 		// As we operate based on pairwise comparison, there's always only 2 elements.
 		// First the vertices must be available, and also not of the same node.
-		if (vertices.length === 2 && vertices[0].nodeId !== vertices[1].nodeId) {
-			const leftVertex = vertices[0];
-			const rightVertex = vertices[1];
-			const leftVertexPosition = leftVertex.operation
-				? this.getUserPosition(":".concat(leftVertex.operation.value))
-				: undefined;
-			const rightVertexPosition = rightVertex.operation
-				? this.getUserPosition(":".concat(rightVertex.operation.value))
-				: undefined;
-			console.log(vertices);
-			// Let's first handle adding a new user
-			if (
-				leftVertex.operation?.type === "addUser" &&
-				rightVertex.operation?.type === "addUser"
-			) {
-				// This basically tells the cro to accept only the ones that comes first.
-				if (leftVertexPosition) {
-					return { action: ActionType.DropRight };
-				}
-				return { action: ActionType.DropLeft };
-			}
+		// if (vertices.length === 2 && vertices[0].nodeId !== vertices[1].nodeId) {
+		const leftVertex = vertices[0];
+		const rightVertex = vertices[1];
+		const leftVertexPosition = leftVertex.operation
+			? this.getUserPosition(":".concat(leftVertex.operation.value))
+			: undefined;
+		const rightVertexPosition = rightVertex.operation
+			? this.getUserPosition(":".concat(rightVertex.operation.value))
+			: undefined;
+		console.log("resolveConflicts vertices:", vertices)
 
-			// Now handle moving the user
-			if (
-				leftVertex.operation?.type === "moveUser" &&
-				rightVertex.operation?.type === "moveUser" &&
-				leftVertexPosition &&
-				rightVertexPosition
-			) {
-				const leftVertexNextPosition = this._computeNewPosition(
-					leftVertexPosition,
-					leftVertex.operation.value[1],
-				);
-				const rightVertexNextPosition = this._computeNewPosition(
-					rightVertexPosition,
-					rightVertex.operation.value[1],
-				);
+		// 	// Let's first handle adding a new user
+		// 	if (
+		// 		leftVertex.operation?.type === "addUser" &&
+		// 		rightVertex.operation?.type === "addUser" &&
+		// 		leftVertex.nodeId !== rightVertex.nodeId
+		// 	) {
+		// 		// If the node id is not the same but its considered a conflict, ignore conflict.
+		// 		return {action: ActionType.}
+		// 	}
 
-				// If they are going to colide, do nothing so they don't move and thus do not colide.
-				if (
-					leftVertexNextPosition.x === rightVertexNextPosition.x &&
-					leftVertexNextPosition.y === rightVertexNextPosition.y
-				) {
-					return { action: ActionType.Drop };
-				}
+		// Now handle moving the user
+		if (
+			leftVertex.operation?.type === "moveUser" &&
+			rightVertex.operation?.type === "moveUser" &&
+			leftVertexPosition &&
+			rightVertexPosition
+		) {
+			const leftVertexNextPosition = this._computeNewPosition(
+				leftVertexPosition,
+				leftVertex.operation.value[1],
+			);
+			const rightVertexNextPosition = this._computeNewPosition(
+				rightVertexPosition,
+				rightVertex.operation.value[1],
+			);
+			console.log(
+				"Positions: ",
+				leftVertexNextPosition,
+				rightVertexNextPosition,
+			);
+
+			// If they are going to colide, do nothing so they don't move and thus do not colide.
+			if (
+				leftVertexNextPosition.x === rightVertexNextPosition.x &&
+				leftVertexNextPosition.y === rightVertexNextPosition.y
+			) {
+				return { action: ActionType.Drop };
 			}
 		}
+		// }
 
 		// If none of the operations match our criteria, they are concurrent
 		// safe, and thus we don't need to do anything.
