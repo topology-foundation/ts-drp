@@ -5,7 +5,7 @@
 	"scripts": {
 		"build": "vite build",
 		"clean": "rm -rf dist/ node_modules/",
-		"dev": "vite serve",
+		"dev": "vite serve --host",
 		"start": "vite preview --host --port 5173"
 	},
 	"dependencies": {

@@ -35,7 +35,7 @@ import { webTransport } from "@libp2p/webtransport";
 import { type MultiaddrInput, multiaddr } from "@multiformats/multiaddr";
 import { WebRTC } from "@multiformats/multiaddr-matcher";
 import { Logger, type LoggerOptions } from "@ts-drp/logger";
-import { type Libp2p, createLibp2p } from "libp2p";
+import type { Libp2p } from "libp2p";
 import { fromString as uint8ArrayFromString } from "uint8arrays/from-string";
 import { Message } from "./proto/drp/network/v1/messages_pb.js";
 import { uint8ArrayToStream } from "./stream.js";
@@ -48,6 +48,15 @@ export const BOOTSTRAP_NODES = [
 	"/dns4/bootstrap2.topology.gg/tcp/443/wss/p2p/12D3KooWLGuTtCHLpd1SBHeyvzT3kHVe2dw8P7UdoXsfQHu8qvkf",
 ];
 let log: Logger;
+import { registerInstrumentations } from "@opentelemetry/instrumentation";
+import { FetchInstrumentation } from "@opentelemetry/instrumentation-fetch";
+import {} from "@opentelemetry/sdk-trace-base";
+
+import { openTelemetryMetrics } from "@libp2p/opentelemetry-metrics";
+import {} from "@opentelemetry/api";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
+import { createLibp2p } from "libp2p";
 
 // snake_casing to match the JSON config
 export interface DRPNetworkNodeConfig {
@@ -86,6 +95,22 @@ export class DRPNetworkNode {
 			? this._config.bootstrap_peers
 			: BOOTSTRAP_NODES;
 
+		const provider = new WebTracerProvider();
+
+		// Set up the exporter
+		const exporter = new OTLPTraceExporter({
+			url: "http://127.0.0.1:9999/v1/traces",
+			headers: {
+				"Content-Type": "application/json",
+				"Access-Control-Allow-Headers": "*",
+				"Access-Control-Allow-Origin": "*",
+			},
+			//  url: 'https://your-otel-collector-endpoint/v1/traces', // Replace with your OTLP endpoint
+		});
+
+		// Register the provider
+		provider.register();
+		//
 		const _peerDiscovery = [];
 		const _bootstrapPeerID: string[] = [];
 		if (_bootstrapNodesList.length) {
@@ -130,6 +155,24 @@ export class DRPNetworkNode {
 				fallbackToFloodsub: false,
 			}),
 		};
+		registerInstrumentations({
+			instrumentations: [
+				new FetchInstrumentation({
+					propagateTraceHeaderCorsUrls: /.+/, // Propagate trace headers for CORS requests
+				}),
+				//new XMLHttpRequestInstrumentation(),
+			],
+		});
+
+		// Create a tracer instance
+		//const tracer = provider.getTracer("browser-app");
+
+		// Example: Manually create a span
+		//const mainSpan = tracer.startSpan("main-task");
+		setTimeout(() => {
+			//mainSpan.end(); // End the span when the task completes
+			exporter.forceFlush();
+		}, 2000);
 
 		if (this._config?.bootstrap) {
 			_node_services = {
@@ -185,7 +228,9 @@ export class DRPNetworkNode {
 					return false;
 				},
 			},
-			metrics: this._config?.browser_metrics ? devToolsMetrics() : undefined,
+			metrics: openTelemetryMetrics({
+				appName: "browser-app",
+			}),
 			peerDiscovery: _peerDiscovery,
 			services: this._config?.bootstrap ? _bootstrap_services : _node_services,
 			streamMuxers: [yamux()],
