@@ -18,7 +18,10 @@ import { devToolsMetrics } from "@libp2p/devtools-metrics";
 import { identify } from "@libp2p/identify";
 import type {
 	EventCallback,
+	EventHandler,
+	Libp2pEvents,
 	PubSub,
+	ServiceMap,
 	Stream,
 	StreamHandler,
 } from "@libp2p/interface";
@@ -236,6 +239,24 @@ export class DRPNetworkNode {
 		} catch (e) {
 			log.error("::unsubscribe:", e);
 		}
+	}
+
+	addNodeEventListener<K extends keyof Libp2pEvents<ServiceMap>>(
+		type: K,
+		listener: EventHandler<Libp2pEvents<ServiceMap>[K]> | null,
+		options?: boolean | AddEventListenerOptions,
+	): void {
+		if (!this._node) return;
+		this._node.addEventListener(type, listener, options);
+	}
+
+	addPubsubEventListener<K extends keyof GossipsubEvents>(
+		type: K,
+		listener: EventHandler<GossipsubEvents[K]> | null,
+		options?: boolean | AddEventListenerOptions,
+	): void {
+		if (!this._pubsub) return;
+		this._pubsub.addEventListener(type, listener, options);
 	}
 
 	async connect(addr: MultiaddrInput) {
