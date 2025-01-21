@@ -1,14 +1,12 @@
 import {
 	ActionType,
 	type DRP,
-	type Operation,
 	type ResolveConflictsType,
 	SemanticsType,
 	type Vertex,
 } from "@ts-drp/object";
 
 export class Grid implements DRP {
-	operations: string[] = ["addUser", "moveUser"];
 	semanticsType: SemanticsType = SemanticsType.pair;
 	positions: Map<string, { x: number; y: number }>;
 
@@ -17,21 +15,38 @@ export class Grid implements DRP {
 	}
 
 	addUser(userId: string, color: string): void {
-		this._addUser(userId, color);
-	}
-
-	private _addUser(userId: string, color: string): void {
 		const userColorString = `${userId}:${color}`;
-		// We should set a random coordinate, but here we don't.
-		// This is to simplify the logic for spawning.
-		this.positions.set(userColorString, { x: 0, y: 0 });
+
+		// Increment the y axis from the starting position if there's a collision.
+		// This is a simple way of doing it, however it does mean that if there's too much user
+		// the grid will be filled with users on the same row.
+		const startingPos = { x: 0, y: 0 };
+		while (this.query_isColliding(userColorString, startingPos)) {
+			startingPos.y += 1;
+		}
+
+		this.positions.set(userColorString, startingPos);
 	}
 
 	moveUser(userId: string, direction: string): void {
-		this._moveUser(userId, direction);
+		const userColorString = [...this.positions.keys()].find((u) =>
+			u.startsWith(`${userId}:`),
+		);
+		// Since there's no cases in which the userColorString is an empty string
+		// we can use this to also check if userColorString is defined.
+		const position = this.positions.get(userColorString ?? "");
+
+		if (userColorString && position) {
+			const newPos = this.query_computeNewPosition(position, direction);
+
+			// Only move if its not colliding with other players.
+			if (!this.query_isColliding(userColorString, newPos)) {
+				this.positions.set(userColorString, newPos);
+			}
+		}
 	}
 
-	private _computeNewPosition(
+	query_computeNewPosition(
 		pos: { x: number; y: number },
 		direction: string,
 	): { x: number; y: number } {
@@ -55,25 +70,11 @@ export class Grid implements DRP {
 		return { x: pos.x + deltaX, y: pos.y + deltaY };
 	}
 
-	private _moveUser(userId: string, direction: string): void {
-		const userColorString = [...this.positions.keys()].find((u) =>
-			u.startsWith(`${userId}:`),
-		);
-		if (userColorString) {
-			const position = this.positions.get(userColorString);
-
-			if (position) {
-				const newPos = this._computeNewPosition(position, direction);
-				this.positions.set(userColorString, newPos);
-			}
-		}
-	}
-
-	getUsers(): string[] {
+	query_users(): string[] {
 		return [...this.positions.keys()];
 	}
 
-	getUserPosition(
+	query_userPosition(
 		userColorString: string,
 	): { x: number; y: number } | undefined {
 		const position = this.positions.get(userColorString);
@@ -83,87 +84,27 @@ export class Grid implements DRP {
 		return undefined;
 	}
 
-	resolveConflicts(vertices: Vertex[]): ResolveConflictsType {
-		// Here we implement compensation for the location.
-		// As we operate based on pairwise comparison, there's always only 2 elements.
-		// First the vertices must be available, and also not of the same node.
-		// if (vertices.length === 2 && vertices[0].nodeId !== vertices[1].nodeId) {
-		const leftVertex = vertices[0];
-		const rightVertex = vertices[1];
-		const leftVertexPosition = leftVertex.operation
-			? this.getUserPosition(":".concat(leftVertex.operation.value))
-			: undefined;
-		const rightVertexPosition = rightVertex.operation
-			? this.getUserPosition(":".concat(rightVertex.operation.value))
-			: undefined;
-		console.log("resolveConflicts vertices:", vertices)
-
-		// 	// Let's first handle adding a new user
-		// 	if (
-		// 		leftVertex.operation?.type === "addUser" &&
-		// 		rightVertex.operation?.type === "addUser" &&
-		// 		leftVertex.nodeId !== rightVertex.nodeId
-		// 	) {
-		// 		// If the node id is not the same but its considered a conflict, ignore conflict.
-		// 		return {action: ActionType.}
-		// 	}
-
-		// Now handle moving the user
-		if (
-			leftVertex.operation?.type === "moveUser" &&
-			rightVertex.operation?.type === "moveUser" &&
-			leftVertexPosition &&
-			rightVertexPosition
-		) {
-			const leftVertexNextPosition = this._computeNewPosition(
-				leftVertexPosition,
-				leftVertex.operation.value[1],
-			);
-			const rightVertexNextPosition = this._computeNewPosition(
-				rightVertexPosition,
-				rightVertex.operation.value[1],
-			);
-			console.log(
-				"Positions: ",
-				leftVertexNextPosition,
-				rightVertexNextPosition,
-			);
-
-			// If they are going to colide, do nothing so they don't move and thus do not colide.
-			if (
-				leftVertexNextPosition.x === rightVertexNextPosition.x &&
-				leftVertexNextPosition.y === rightVertexNextPosition.y
-			) {
-				return { action: ActionType.Drop };
+	query_isColliding(
+		userColorString: string,
+		newCoords: { x: number; y: number },
+	): boolean {
+		let isColliding = false;
+		for (const [key, value] of this.positions.entries()) {
+			if (key !== userColorString) {
+				if (value.x === newCoords.x && value.y === newCoords.y) {
+					isColliding = true;
+					break;
+				}
 			}
 		}
-		// }
 
-		// If none of the operations match our criteria, they are concurrent
-		// safe, and thus we don't need to do anything.
-		return { action: ActionType.Nop };
+		return isColliding;
 	}
 
-	mergeCallback(operations: Operation[]): void {
-		// reset this.positions
-		this.positions = new Map<string, { x: number; y: number }>();
+	resolveConflicts(vertices: Vertex[]): ResolveConflictsType {
+		console.log("resolveConflicts vertices:", vertices);
 
-		// apply operations to this.positions
-		for (const op of operations) {
-			if (!op.value) continue;
-			switch (op.type) {
-				case "addUser": {
-					const [userId, color] = op.value;
-					this._addUser(userId, color);
-					break;
-				}
-				case "moveUser": {
-					const [userId, direction] = op.value;
-					this._moveUser(userId, direction);
-					break;
-				}
-			}
-		}
+		return { action: ActionType.Nop };
 	}
 }
 
