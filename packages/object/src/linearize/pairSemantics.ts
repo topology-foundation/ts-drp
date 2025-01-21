@@ -13,6 +13,9 @@ export function linearizePairSemantics(
 ): Operation[] {
 	const order: Hash[] = hashGraph.topologicalSort(true, origin, subgraph);
 	const dropped = new Array(order.length).fill(false);
+	console.log("hashgraph:", hashGraph);
+	console.log("order:", order);
+	console.log("subgraph:", subgraph);
 	const result = [];
 	// alway remove the first operation
 	let i = 1;
@@ -26,6 +29,7 @@ export function linearizePairSemantics(
 		let j = i + 1;
 
 		while (j < order.length) {
+			console.log("causally related:", anchor, order[j], hashGraph.areCausallyRelatedUsingBitsets(anchor, order[j]));
 			if (
 				hashGraph.areCausallyRelatedUsingBitsets(anchor, order[j]) ||
 				dropped[j]
