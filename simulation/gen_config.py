@@ -49,7 +49,7 @@ hosts:
 """
     )
 
-    for i in range(args.bootstrap or 1):
+    for i in range(args.bootstraps):
         ip_addr = f"20.28.234.{i+1}"
         f.write(
             f"""  bootstrap{i+1}:
@@ -57,21 +57,21 @@ hosts:
     network_node_id: 0
     processes:
     - path: /usr/bin/node
-      args: {DIRNAME}/generic_node.js bootstrap{i+1} {args.nodes - 1} {ip_addr}
+      args: {DIRNAME}/generic_node.js -s bootstrap{i+1} --ips {ip_addr}
       environment:
         DEBUG: "libp2p:*error"
       expected_final_state: running
 """
         )
 
-    for i in range(args.nodes - (args.bootstrap or 1)):
+    for i in range(args.nodes - (args.bootstraps)):
         f.write(
             f"""  node{i+1}:
     ip_addr: 84.168.{(i + 1) // 256}.{(i + 1) % 256}
     network_node_id: 0
     processes:
     - path: /usr/bin/node
-      args: {DIRNAME}/generic_node.js node{i+1} {args.nodes - 1} {ip_addr}
+      args: {DIRNAME}/generic_node.js -s node{i+1} --ips {ip_addr}
       environment:
         DEBUG: "libp2p:*error"
       start_time: 5s
