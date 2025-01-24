@@ -2,7 +2,7 @@
 import os
 import sys
 import argparse
-from defaults import DEFAULT_BUILTIN_LATENCIES, DEFAULT_BUILTIN_RELIABILITIES
+from gen_topology import generate_topology
 
 
 parser = argparse.ArgumentParser(prog="gen_config", description="Generate shadow.yaml")
@@ -11,7 +11,7 @@ parser.add_argument(
     "--nodes",
     help="Number of nodes in the network",
     type=int,
-    default=10,
+    default=8,
 )
 parser.add_argument(
     "-b",
@@ -32,6 +32,8 @@ args = parser.parse_args()
 
 DIRNAME = os.path.dirname(os.path.abspath(__file__))
 
+generate_topology(args.bootstraps, args.nodes)
+assert os.path.exists("network_topology.gml")
 
 with open(args.file, "w", encoding="utf8") as f:
     f.write(
@@ -43,14 +45,18 @@ with open(args.file, "w", encoding="utf8") as f:
   model_unblocked_syscall_latency: true
 network:
   graph:
-    type: 1_gbit_switch
+    type: gml
+    file:
+      path: network_topology.gml
 
 hosts:
 """
     )
 
+    bootstrap_addresses = []
     for i in range(args.bootstraps):
         ip_addr = f"20.28.234.{i+1}"
+        bootstrap_addresses.append(ip_addr)
         f.write(
             f"""  bootstrap{i+1}:
     ip_addr: {ip_addr}
@@ -64,14 +70,14 @@ hosts:
 """
         )
 
-    for i in range(args.nodes - (args.bootstraps)):
+    for i in range(args.nodes):
         f.write(
             f"""  node{i+1}:
     ip_addr: 84.168.{(i + 1) // 256}.{(i + 1) % 256}
     network_node_id: 0
     processes:
     - path: /usr/bin/node
-      args: {DIRNAME}/generic_node.js -s node{i+1} --ips {ip_addr}
+      args: {DIRNAME}/generic_node.js -s node{i+1} --ips {",".join(bootstrap_addresses)}
       environment:
         DEBUG: "libp2p:*error"
       start_time: 5s
