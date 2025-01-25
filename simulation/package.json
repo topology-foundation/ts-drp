@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ts-drp/network": "workspace:0.6.1",
     "@ts-drp/node": "workspace:0.6.1",
     "commander": "^13.0.0"
   }

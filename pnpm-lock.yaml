@@ -392,6 +392,9 @@ importers:
 
   simulation:
     dependencies:
+      '@ts-drp/network':
+        specifier: workspace:0.6.1
+        version: link:../packages/network
       '@ts-drp/node':
         specifier: workspace:0.6.1
         version: link:../packages/node

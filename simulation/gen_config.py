@@ -66,7 +66,7 @@ hosts:
     - path: /usr/bin/node
       args: {DIRNAME}/generic_node.js -s bootstrap{i+1} --ips {ip_addr}
       environment:
-        DEBUG: "libp2p:*error"
+        DEBUG: "*"
       expected_final_state: running
 """
         )
@@ -81,7 +81,7 @@ hosts:
     - path: /usr/bin/node
       args: {DIRNAME}/generic_node.js -s node{i+1} --ips {",".join(bootstrap_addresses)}
       environment:
-        DEBUG: "libp2p:*error"
+        DEBUG: "*"
       start_time: 5s
       expected_final_state: running
 """
