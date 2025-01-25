@@ -41,8 +41,13 @@ export class DRPNode {
 	async start(): Promise<void> {
 		await this.credentialStore.start();
 		await this.networkNode.start();
-		this.networkNode.addMessageHandler(async ({ stream }) =>
+		await this.networkNode.addMessageHandler(async ({ stream }) =>
 			drpMessagesHandler(this, stream),
+		);
+		this.networkNode.addGroupMessageHandler("drp::topic::discovery", (e) =>
+			drpMessagesHandler(this, undefined, e.detail.msg.data).catch((e) =>
+				log.error("::DrpNode::Error while handling topic discovery message", e),
+			),
 		);
 	}
 
@@ -111,6 +116,10 @@ export class DRPNode {
 			await operations.syncObject(this, object.id, options.sync.peerId);
 		}
 		return object;
+	}
+
+	getObject(id: string) {
+		return this.objectStore.get(id);
 	}
 
 	/*

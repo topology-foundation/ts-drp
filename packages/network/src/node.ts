@@ -1,6 +1,7 @@
 import {
 	type GossipSub,
 	type GossipsubMessage,
+	type GossipsubOpts,
 	gossipsub,
 } from "@chainsafe/libp2p-gossipsub";
 import {
@@ -22,11 +23,15 @@ import { devToolsMetrics } from "@libp2p/devtools-metrics";
 import { identify, identifyPush } from "@libp2p/identify";
 import type {
 	Address,
+	Connection,
 	EventCallback,
 	PeerDiscovery,
+	PeerId,
 	Stream,
 	StreamHandler,
+	SubscriptionChangeData,
 } from "@libp2p/interface";
+import { peerIdFromString } from "@libp2p/peer-id";
 import { ping } from "@libp2p/ping";
 import {
 	type PubSubPeerDiscoveryComponents,
@@ -36,10 +41,14 @@ import { webRTC, webRTCDirect } from "@libp2p/webrtc";
 import { webSockets } from "@libp2p/websockets";
 import * as filters from "@libp2p/websockets/filters";
 import { webTransport } from "@libp2p/webtransport";
-import { type MultiaddrInput, multiaddr } from "@multiformats/multiaddr";
+import {
+	type Multiaddr,
+	type MultiaddrInput,
+	multiaddr,
+} from "@multiformats/multiaddr";
 import { WebRTC } from "@multiformats/multiaddr-matcher";
 import { Logger, type LoggerOptions } from "@ts-drp/logger";
-import { type Libp2p, createLibp2p } from "libp2p";
+import { type Libp2p, type ServiceFactoryMap, createLibp2p } from "libp2p";
 import { fromString as uint8ArrayFromString } from "uint8arrays/from-string";
 import { Message } from "./proto/drp/network/v1/messages_pb.js";
 import { uint8ArrayToStream } from "./stream.js";
@@ -62,6 +71,9 @@ export interface DRPNetworkNodeConfig {
 	browser_metrics?: boolean;
 	private_key_seed?: string;
 	log_config?: LoggerOptions;
+	discovery_interval?: number;
+	gossip_sub_config?: Partial<GossipsubOpts>;
+	discovery?: boolean;
 }
 
 type PeerDiscoveryFunction =
@@ -72,6 +84,7 @@ export class DRPNetworkNode {
 	private _config?: DRPNetworkNodeConfig;
 	private _node?: Libp2p;
 	private _pubsub?: GossipSub;
+	private _started = false;
 
 	peerId = "";
 
@@ -81,6 +94,9 @@ export class DRPNetworkNode {
 	}
 
 	async start() {
+		if (this._started) throw new Error("Node already started");
+		this._started = true;
+
 		let privateKey = undefined;
 		if (this._config?.private_key_seed) {
 			const tmp = this._config.private_key_seed.padEnd(32, "0");
@@ -95,10 +111,14 @@ export class DRPNetworkNode {
 			: BOOTSTRAP_NODES;
 
 		const _peerDiscovery: Array<PeerDiscoveryFunction> = [
-			pubsubPeerDiscovery({
-				topics: ["drp::discovery"],
-				interval: 10_000,
-			}),
+			...(this._config?.discovery
+				? [
+						pubsubPeerDiscovery({
+							topics: ["drp::discovery"],
+							interval: this._config?.discovery_interval ?? 10_000,
+						}),
+					]
+				: []),
 		];
 
 		const _bootstrapPeerID: string[] = [];
@@ -115,9 +135,8 @@ export class DRPNetworkNode {
 			}
 		}
 
-		let _node_services = {
+		let _node_services: ServiceFactoryMap = {
 			ping: ping(),
-			autonat: autoNAT(),
 			dcutr: dcutr(),
 			identify: identify(),
 			identifyPush: identifyPush(),
@@ -139,8 +158,13 @@ export class DRPNetworkNode {
 					},
 				}),
 				fallbackToFloodsub: false,
+				...this._config?.gossip_sub_config,
 			}),
 		};
+
+		if (this._config?.listen_addresses) {
+			_node_services.autonat = autoNAT();
+		}
 
 		if (this._config?.bootstrap) {
 			_node_services = {
@@ -159,6 +183,7 @@ export class DRPNetworkNode {
 						IPColocationFactorWeight: 0,
 					}),
 					fallbackToFloodsub: false,
+					...this._config?.gossip_sub_config,
 				}),
 			};
 		}
@@ -239,9 +264,12 @@ export class DRPNetworkNode {
 
 		// needded as I've disabled the pubsubPeerDiscovery
 		this._pubsub?.subscribe("drp::discovery");
+		this._pubsub?.subscribe("drp::topic::discovery");
 	}
 
 	async stop() {
+		if (!this._started) throw new Error("Node not started");
+		this._started = false;
 		await this._node?.stop();
 	}
 
@@ -249,6 +277,161 @@ export class DRPNetworkNode {
 		await this.stop();
 		if (config) this._config = config;
 		await this.start();
+	}
+
+	async getPeerMultiaddrs(peerId: PeerId | string) {
+		const peerIdObj: PeerId =
+			typeof peerId === "string" ? peerIdFromString(peerId) : peerId;
+
+		const peer = await this._node?.peerStore.get(peerIdObj);
+		if (!peer) return [];
+		return peer.addresses;
+	}
+
+	async waitForPeer(peerId: string, timeout = 5000) {
+		return new Promise((resolve, reject) => {
+			if (!this._node)
+				return reject(new Error("Node not initialized, please run .start()"));
+
+			if (this._node.getPeers().some((p) => p.toString() === peerId))
+				return resolve(true);
+
+			const timeoutId = setTimeout(() => {
+				this._node?.removeEventListener("peer:connect", peerConnectListener);
+				resolve(false);
+			}, timeout);
+
+			const peerConnectListener = (e: CustomEvent<PeerId>) => {
+				if (e.detail.toString() === peerId) {
+					clearTimeout(timeoutId);
+					this._node?.removeEventListener("peer:connect", peerConnectListener);
+					resolve(true);
+				}
+			};
+
+			this._node.addEventListener("peer:connect", peerConnectListener);
+		});
+	}
+
+	async waitForUpgradedConnection(peerId: string, timeout = 5000) {
+		return new Promise((resolve, reject) => {
+			if (!this._node)
+				return reject(new Error("Node not initialized, please run .start()"));
+
+			if (
+				this._node
+					.getConnections()
+					.some(
+						(c) => c.remotePeer.toString() === peerId && c.limits === undefined,
+					)
+			) {
+				return resolve(true);
+			}
+
+			const timeoutId = setTimeout(() => {
+				resolve(false);
+			}, timeout);
+
+			const connectionListener = (e: CustomEvent<Connection>) => {
+				if (
+					e.detail.remotePeer.toString() === peerId &&
+					e.detail.limits === undefined
+				) {
+					clearTimeout(timeoutId);
+					this._node?.removeEventListener(
+						"connection:open",
+						connectionListener,
+					);
+					resolve(true);
+				}
+			};
+
+			this._node?.addEventListener("connection:open", connectionListener);
+		});
+	}
+
+	libp2pPeerId() {
+		if (!this._node)
+			throw new Error("Node not initialized, please run .start()");
+		return this._node.peerId;
+	}
+
+	async isDiablable(timeout = 5000) {
+		return new Promise((resolve) => {
+			if (!this._node) {
+				resolve(false);
+				return;
+			}
+
+			const timeoutId = setTimeout(() => {
+				resolve(false);
+			}, timeout);
+
+			const transportListeningListener = async () => {
+				if (!this._node) {
+					resolve(false);
+					clearTimeout(timeoutId);
+					return;
+				}
+
+				try {
+					const isDialable = await this._node.isDialable(
+						this._node.getMultiaddrs(),
+					);
+					if (isDialable) {
+						resolve(isDialable);
+					}
+				} catch {
+					resolve(false);
+				} finally {
+					this._node.removeEventListener(
+						"transport:listening",
+						transportListeningListener,
+					);
+					clearTimeout(timeoutId);
+				}
+			};
+
+			this._node.addEventListener(
+				"transport:listening",
+				transportListeningListener,
+			);
+		});
+	}
+
+	async isSubscribed(topic: string, peerId: PeerId, timeout = 5000) {
+		return new Promise((resolve) => {
+			if (this._pubsub?.getSubscribers(topic)?.includes(peerId)) {
+				resolve(true);
+				return;
+			}
+
+			const timeoutId = setTimeout(() => {
+				resolve(false);
+			}, timeout);
+
+			const subscriptionChangeListener = (
+				e: CustomEvent<SubscriptionChangeData>,
+			) => {
+				if (
+					e.detail.subscriptions.some(
+						(s) => s.topic === topic && e.detail.peerId.equals(peerId),
+					)
+				) {
+					resolve(true);
+					this._pubsub?.removeEventListener(
+						"subscription-change",
+						subscriptionChangeListener,
+					);
+					clearTimeout(timeoutId);
+				}
+			};
+
+			this._pubsub?.addEventListener(
+				"subscription-change",
+				subscriptionChangeListener,
+			);
+		});
 	}
 
 	private _sortAddresses(a: Address, b: Address) {
@@ -304,9 +487,15 @@ export class DRPNetworkNode {
 		}
 	}
 
-	async connect(addr: MultiaddrInput) {
+	async connect(addr: MultiaddrInput | MultiaddrInput[]) {
 		try {
-			await this._node?.dial([multiaddr(addr)]);
+			let multiaddrs: Multiaddr[] = [];
+			if (Array.isArray(addr)) {
+				multiaddrs = addr.map((a) => multiaddr(a));
+			} else {
+				multiaddrs = [multiaddr(addr)];
+			}
+			await this._node?.dial(multiaddrs);
 			log.info("::connect: Successfuly dialed", addr);
 		} catch (e) {
 			log.error("::connect:", e);
@@ -361,7 +550,7 @@ export class DRPNetworkNode {
 			const connection = await this._node?.dial([multiaddr(`/p2p/${peerId}`)]);
 			const stream = <Stream>await connection?.newStream(DRP_MESSAGE_PROTOCOL);
 			const messageBuffer = Message.encode(message).finish();
-			uint8ArrayToStream(stream, messageBuffer);
+			await uint8ArrayToStream(stream, messageBuffer);
 		} catch (e) {
 			log.error("::sendMessage:", e);
 		}
@@ -394,8 +583,8 @@ export class DRPNetworkNode {
 		});
 	}
 
-	addMessageHandler(handler: StreamHandler) {
-		this._node?.handle(DRP_MESSAGE_PROTOCOL, handler);
+	async addMessageHandler(handler: StreamHandler) {
+		await this._node?.handle(DRP_MESSAGE_PROTOCOL, handler);
 	}
 
 	addCustomMessageHandler(protocol: string | string[], handler: StreamHandler) {

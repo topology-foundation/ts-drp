@@ -61,9 +61,57 @@ export async function drpMessagesHandler(
 		case NetworkPb.MessageType.MESSAGE_TYPE_ATTESTATION_UPDATE:
 			attestationUpdateHandler(node, message.sender, message.data);
 			break;
+		case NetworkPb.MessageType.MESSAGE_TYPE_TOPIC_DISCOVERY_REQUEST:
+			topicDiscoveryRequestHandler(node, message.sender, message.data);
+			break;
+		case NetworkPb.MessageType.MESSAGE_TYPE_TOPIC_DISCOVERY_RESPONSE:
+			topicDiscoveryResponseHandler(node, message.data);
+			break;
 		default:
 			log.error("::messageHandler: Invalid operation");
 			break;
+	}
+}
+
+async function topicDiscoveryRequestHandler(
+	node: DRPNode,
+	sender: string,
+	data: Uint8Array,
+) {
+	const topicDiscoveryRequest = NetworkPb.TopicDiscoveryRequest.decode(data);
+	const peers = node.networkNode.getGroupPeers(topicDiscoveryRequest.topic);
+	const subscribers: { [key: string]: { multiaddrs: string[] } } = {};
+	for (const peer of peers) {
+		subscribers[peer] = {
+			multiaddrs: (await node.networkNode.getPeerMultiaddrs(peer)).map((addr) =>
+				addr.multiaddr.toString(),
+			),
+		};
+	}
+
+	const response = NetworkPb.TopicDiscoveryResponse.create({
+		subscribers,
+	});
+
+	const message = NetworkPb.Message.create({
+		sender: node.networkNode.peerId.toString(),
+		type: NetworkPb.MessageType.MESSAGE_TYPE_TOPIC_DISCOVERY_RESPONSE,
+		data: NetworkPb.TopicDiscoveryResponse.encode(response).finish(),
+	});
+
+	log.info("::topicDiscoveryRequestHandler: Sending message to", sender);
+
+	await node.networkNode.sendMessage(sender, message);
+}
+
+async function topicDiscoveryResponseHandler(node: DRPNode, data: Uint8Array) {
+	const topicDiscoveryResponse = NetworkPb.TopicDiscoveryResponse.decode(data);
+	for (const [, subscribers] of Object.entries(
+		topicDiscoveryResponse.subscribers,
+	)) {
+		for (const multiaddr of subscribers.multiaddrs) {
+			await node.networkNode.connect(multiaddr);
+		}
 	}
 }
 
@@ -136,27 +184,41 @@ function fetchStateResponseHandler(node: DRPNode, data: Uint8Array) {
 	}
 }
 
-async function attestationUpdateHandler(
+export async function attestationUpdateHandler(
 	node: DRPNode,
 	sender: string,
 	data: Uint8Array,
-) {
+): Promise<boolean> {
 	const attestationUpdate = NetworkPb.AttestationUpdate.decode(data);
 	const object = node.objectStore.get(attestationUpdate.objectId);
 	if (!object) {
 		log.error("::attestationUpdateHandler: Object not found");
-		return;
+		return false;
 	}
-	if ((object.acl as ACL).query_isFinalitySigner(sender)) {
-		object.finalityStore.addSignatures(sender, attestationUpdate.attestations);
+
+	try {
+		if ((object.acl as ACL).query_isFinalitySigner(sender)) {
+			object.finalityStore.addSignatures(
+				sender,
+				attestationUpdate.attestations,
+			);
+		}
+	} catch (e) {
+		log.error("::attestationUpdateHandler: ", e);
+		return false;
 	}
+	return true;
 }
 
 /*
   data: { id: string, operations: {nonce: string, fn: string, args: string[] }[] }
   operations array doesn't contain the full remote operations array
 */
-async function updateHandler(node: DRPNode, sender: string, data: Uint8Array) {
+export async function updateHandler(
+	node: DRPNode,
+	sender: string,
+	data: Uint8Array,
+) {
 	const updateMessage = NetworkPb.Update.decode(data);
 	const object = node.objectStore.get(updateMessage.objectId);
 	if (!object) {
@@ -211,13 +273,17 @@ async function updateHandler(node: DRPNode, sender: string, data: Uint8Array) {
   data: { id: string, operations: {nonce: string, fn: string, args: string[] }[] }
   operations array contain the full remote operations array
 */
-async function syncHandler(node: DRPNode, sender: string, data: Uint8Array) {
+export async function syncHandler(
+	node: DRPNode,
+	sender: string,
+	data: Uint8Array,
+): Promise<boolean> {
 	// (might send reject) <- TODO: when should we reject?
 	const syncMessage = NetworkPb.Sync.decode(data);
 	const object = node.objectStore.get(syncMessage.objectId);
 	if (!object) {
 		log.error("::syncHandler: Object not found");
-		return;
+		return false;
 	}
 
 	await signGeneratedVertices(node, object.vertices);
@@ -233,7 +299,7 @@ async function syncHandler(node: DRPNode, sender: string, data: Uint8Array) {
 		}
 	}
 
-	if (requested.size === 0 && requesting.length === 0) return;
+	if (requested.size === 0 && requesting.length === 0) return true;
 
 	const attestations = getAttestations(object, [...requested]);
 
@@ -251,22 +317,24 @@ async function syncHandler(node: DRPNode, sender: string, data: Uint8Array) {
 		).finish(),
 	});
 	node.networkNode.sendMessage(sender, message);
+
+	return true;
 }
 
 /*
   data: { id: string, operations: {nonce: string, fn: string, args: string[] }[] }
   operations array contain the full remote operations array
 */
-async function syncAcceptHandler(
+export async function syncAcceptHandler(
 	node: DRPNode,
 	sender: string,
 	data: Uint8Array,
-) {
+): Promise<boolean> {
 	const syncAcceptMessage = NetworkPb.SyncAccept.decode(data);
 	const object = node.objectStore.get(syncAcceptMessage.objectId);
 	if (!object) {
 		log.error("::syncAcceptHandler: Object not found");
-		return;
+		return false;
 	}
 
 	let verifiedVertices: Vertex[] = [];
@@ -297,7 +365,7 @@ async function syncAcceptHandler(
 		}
 	}
 
-	if (requested.length === 0) return;
+	if (requested.length === 0) return false;
 
 	const attestations = getAttestations(object, requested);
 
@@ -314,6 +382,7 @@ async function syncAcceptHandler(
 		).finish(),
 	});
 	node.networkNode.sendMessage(sender, message);
+	return true;
 }
 
 /* data: { id: string } */
