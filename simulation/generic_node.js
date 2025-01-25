@@ -58,14 +58,15 @@ node.networkNode.subscribe(group)
 node.networkNode.addGroupMessageHandler(group, async (e) => {
     const message = NetworkPb.Message.decode(e.detail.msg.data)
     const messageData = Buffer.from(message.data).toString("utf-8")
-    console.log(`Received message from ${e.detail.msg.sender}: ${messageData}, at ${Date.now()}`)
+    const sender = Buffer.from(message.sender).toString("utf-8")
+    console.log(`Received message from ${sender} : ${messageData} , at ${Date.now()}`)
 })
 
 
 if (!opts.seed.startsWith("bootstrap")) {
+    let count = 0
     setInterval(() => {
-        let count = 0
-        console.log(`Sending message from ${node.networkNode.peerId} at ${Date.now()}`)
+        console.log(`Sending message number ${count} from ${node.networkNode.peerId} at ${Date.now()}`)
         node.networkNode.broadcastMessage(group, {
             sender: node.networkNode.peerId,
             type: 0,
