@@ -11,7 +11,7 @@ REGIONS = [
     "west_asia",
 ]
 
-
+# latencies, jitter
 DEFAULT_BUILTIN_LATENCIES = {
     "australia": {
         "australia": (2, 0.0),
