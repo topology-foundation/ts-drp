@@ -11,6 +11,7 @@ import {
 } from "@chainsafe/libp2p-gossipsub/score";
 import { noise } from "@chainsafe/libp2p-noise";
 import { yamux } from "@chainsafe/libp2p-yamux";
+import { autoTLS } from "@libp2p/auto-tls";
 import { autoNAT } from "@libp2p/autonat";
 import { type BootstrapComponents, bootstrap } from "@libp2p/bootstrap";
 import {
@@ -31,6 +32,7 @@ import type {
 	StreamHandler,
 	SubscriptionChangeData,
 } from "@libp2p/interface";
+import { keychain } from "@libp2p/keychain";
 import { peerIdFromString } from "@libp2p/peer-id";
 import { ping } from "@libp2p/ping";
 import {
@@ -140,6 +142,7 @@ export class DRPNetworkNode {
 			dcutr: dcutr(),
 			identify: identify(),
 			identifyPush: identifyPush(),
+
 			pubsub: gossipsub({
 				doPX: true,
 				allowPublishToZeroTopicPeers: true,
@@ -184,6 +187,17 @@ export class DRPNetworkNode {
 					}),
 					fallbackToFloodsub: false,
 					...this._config?.gossip_sub_config,
+				}),
+				keychain: keychain(),
+				//upnpNAT: uPnPNAT({
+				//	autoConfirmAddress: true,
+				//	externalAddressCheckInterval: 1000,
+
+				//}),
+				// @ts-expect-error
+				autoTLS: autoTLS({
+					autoConfirmAddress: true,
+					provisionDelay: 1000,
 				}),
 			};
 		}
@@ -265,6 +279,9 @@ export class DRPNetworkNode {
 		// needded as I've disabled the pubsubPeerDiscovery
 		this._pubsub?.subscribe("drp::discovery");
 		this._pubsub?.subscribe("drp::topic::discovery");
+		setInterval(() => {
+			console.log("::start::getMultiaddrs", this.getMultiaddrs());
+		}, 30000);
 	}
 
 	async stop() {

@@ -82,9 +82,10 @@ async function topicDiscoveryRequestHandler(
 	const peers = node.networkNode.getGroupPeers(topicDiscoveryRequest.topic);
 	const subscribers: { [key: string]: { multiaddrs: string[] } } = {};
 	for (const peer of peers) {
+		if (peer === sender) continue;
 		subscribers[peer] = {
-			multiaddrs: (await node.networkNode.getPeerMultiaddrs(peer)).map((addr) =>
-				addr.multiaddr.toString(),
+			multiaddrs: (await node.networkNode.getPeerMultiaddrs(peer)).map(
+				(addr) => `${addr.multiaddr.toString()}/p2p/${peer}`,
 			),
 		};
 	}
@@ -106,12 +107,14 @@ async function topicDiscoveryRequestHandler(
 
 async function topicDiscoveryResponseHandler(node: DRPNode, data: Uint8Array) {
 	const topicDiscoveryResponse = NetworkPb.TopicDiscoveryResponse.decode(data);
-	for (const [, subscribers] of Object.entries(
+	for (const [, subscriber] of Object.entries(
 		topicDiscoveryResponse.subscribers,
 	)) {
-		for (const multiaddr of subscribers.multiaddrs) {
-			await node.networkNode.connect(multiaddr);
-		}
+		console.log(
+			"::topicDiscoveryResponseHandler: Connecting to",
+			subscriber.multiaddrs,
+		);
+		await node.networkNode.connect(subscriber.multiaddrs);
 	}
 }
 
