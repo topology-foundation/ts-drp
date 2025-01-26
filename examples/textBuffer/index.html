@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DRP - Text Buffer</title>
+  </head>
+  <body>
+    <div>
+      <h1>TEXT BUFFER</h1>
+      <p>Your Peer ID: <span id="peerId"></span></p>
+      <p>Your dialabe multiaddr: 
+        <span id="dialableMultiaddr" style="cursor: pointer; display: inline-block;"></span>
+        <ul id="multiAddrList" style="margin: 5px 0; display: none;"></ul>
+      </p>
+      <p>Your Peers: 
+        <span id="peers" style="cursor: pointer; display: inline-block;"></span>
+        <ul id="peersList" style="margin: 5px 0; display: none;"></ul>
+      </p>
+      <p>Your Discovery Peers: 
+        <span id="discoveryPeers" style="cursor: pointer; display: inline-block;"></span>
+        <ul id="discoveryPeersList" style="margin: 5px 0; display: none;"></ul>
+      </p>
+
+      <p>
+        <button id="joinTextBuffer" style="width: 80px">JOIN</button>
+        <span style="margin: 0 5px;"></span>
+        <input id="textBufferInput" type="text" placeholder="TEXT BUFFER ID" />
+        <span style="margin: 0 5px;"></span>
+        <span id="objectPeers"></span>
+      </p>
+
+      <div id="textBufferContents" style="margin-top: 20px;">
+        <h3>Text Buffer Contents</h3>
+        <div id="textBuffer" 
+             contenteditable="true" 
+             style="margin: 10px 0;
+                    min-height: 200px;
+                    font-size: 16px;
+                    line-height: 1.5;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    outline: none;
+                    white-space: pre-wrap;">
+        </div>
+      </div>
+
+      <p>Value: <span id="value"></span></p>
+      <p>Selection Start: <span id="selectionStart"></span></p>
+      <p>Selection End: <span id="selectionEnd"></span></p>
+    </div>
+
+    <script type="module" src="/src/index.ts"></script>
+  </body>
+</html>
