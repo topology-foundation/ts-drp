@@ -41,7 +41,7 @@ export class DRPNode {
 	async start(): Promise<void> {
 		await this.credentialStore.start();
 		await this.networkNode.start();
-		this.networkNode.addMessageHandler(async ({ stream }) =>
+		await this.networkNode.addMessageHandler(async ({ stream }) =>
 			drpMessagesHandler(this, stream),
 		);
 	}
@@ -111,6 +111,10 @@ export class DRPNode {
 			await operations.syncObject(this, object.id, options.sync.peerId);
 		}
 		return object;
+	}
+
+	getObject(id: string) {
+		return this.objectStore.get(id);
 	}
 
 	/*
