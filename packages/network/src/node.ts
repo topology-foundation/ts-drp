@@ -1,4 +1,9 @@
-import { type GossipSub, type GossipsubMessage, gossipsub } from "@chainsafe/libp2p-gossipsub";
+import {
+	type GossipSub,
+	type GossipsubMessage,
+	type GossipsubOpts,
+	gossipsub,
+} from "@chainsafe/libp2p-gossipsub";
 import {
 	type TopicScoreParams,
 	createPeerScoreParams,
@@ -15,10 +20,13 @@ import { devToolsMetrics } from "@libp2p/devtools-metrics";
 import { identify, identifyPush } from "@libp2p/identify";
 import type {
 	Address,
+	Connection,
 	EventCallback,
 	PeerDiscovery,
+	PeerId,
 	Stream,
 	StreamHandler,
+	SubscriptionChangeData,
 } from "@libp2p/interface";
 import { ping } from "@libp2p/ping";
 import {
@@ -55,6 +63,7 @@ export interface DRPNetworkNodeConfig {
 	browser_metrics?: boolean;
 	listen_addresses?: string[];
 	log_config?: LoggerOptions;
+	gossip_sub_config?: Partial<GossipsubOpts>;
 	private_key_seed?: string;
 	pubsub_peer_discovery_interval?: number;
 }
@@ -76,6 +85,9 @@ export class DRPNetworkNode {
 	}
 
 	async start() {
+		if (this._node?.status === "started")
+			throw new Error("Node already started");
+
 		let privateKey = undefined;
 		if (this._config?.private_key_seed) {
 			const tmp = this._config.private_key_seed.padEnd(32, "0");
@@ -130,6 +142,7 @@ export class DRPNetworkNode {
 					},
 				}),
 				fallbackToFloodsub: false,
+				...this._config?.gossip_sub_config,
 			}),
 		};
 
@@ -151,6 +164,7 @@ export class DRPNetworkNode {
 						IPColocationFactorWeight: 0,
 					}),
 					fallbackToFloodsub: false,
+					...this._config?.gossip_sub_config,
 				}),
 			};
 		}
@@ -229,6 +243,7 @@ export class DRPNetworkNode {
 	}
 
 	async stop() {
+		if (this._node?.status === "stopped") throw new Error("Node not started");
 		await this._node?.stop();
 	}
 
@@ -236,6 +251,152 @@ export class DRPNetworkNode {
 		await this.stop();
 		if (config) this._config = config;
 		await this.start();
+	}
+
+	async waitForPeer(peerId: string, timeout = 5000) {
+		return new Promise((resolve, reject) => {
+			if (!this._node)
+				return reject(new Error("Node not initialized, please run .start()"));
+
+			if (this._node.getPeers().some((p) => p.toString() === peerId))
+				return resolve(true);
+
+			const timeoutId = setTimeout(() => {
+				this._node?.removeEventListener("peer:connect", peerConnectListener);
+				resolve(false);
+			}, timeout);
+
+			const peerConnectListener = (e: CustomEvent<PeerId>) => {
+				if (e.detail.toString() === peerId) {
+					clearTimeout(timeoutId);
+					this._node?.removeEventListener("peer:connect", peerConnectListener);
+					resolve(true);
+				}
+			};
+
+			this._node.addEventListener("peer:connect", peerConnectListener);
+		});
+	}
+
+	async waitForUpgradedConnection(peerId: string, timeout = 5000) {
+		return new Promise((resolve, reject) => {
+			if (!this._node)
+				return reject(new Error("Node not initialized, please run .start()"));
+
+			if (
+				this._node
+					.getConnections()
+					.some(
+						(c) => c.remotePeer.toString() === peerId && c.limits === undefined,
+					)
+			) {
+				return resolve(true);
+			}
+
+			const timeoutId = setTimeout(() => {
+				resolve(false);
+			}, timeout);
+
+			const connectionListener = (e: CustomEvent<Connection>) => {
+				if (
+					e.detail.remotePeer.toString() === peerId &&
+					e.detail.limits === undefined
+				) {
+					clearTimeout(timeoutId);
+					this._node?.removeEventListener(
+						"connection:open",
+						connectionListener,
+					);
+					resolve(true);
+				}
+			};
+
+			this._node?.addEventListener("connection:open", connectionListener);
+		});
+	}
+
+	libp2pPeerId() {
+		if (!this._node)
+			throw new Error("Node not initialized, please run .start()");
+		return this._node.peerId;
+	}
+
+	isDiablable(timeout = 5000) {
+		return new Promise((resolve) => {
+			if (!this._node) {
+				resolve(false);
+				return;
+			}
+
+			const timeoutId = setTimeout(() => {
+				resolve(false);
+			}, timeout);
+
+			const transportListeningListener = async () => {
+				if (!this._node) {
+					resolve(false);
+					clearTimeout(timeoutId);
+					return;
+				}
+
+				try {
+					const isDialable = await this._node.isDialable(
+						this._node.getMultiaddrs(),
+					);
+					if (isDialable) {
+						resolve(isDialable);
+					}
+				} catch {
+					resolve(false);
+				} finally {
+					this._node.removeEventListener(
+						"transport:listening",
+						transportListeningListener,
+					);
+					clearTimeout(timeoutId);
+				}
+			};
+
+			this._node.addEventListener(
+				"transport:listening",
+				transportListeningListener,
+			);
+		});
+	}
+
+	isSubscribed(topic: string, peerId: PeerId, timeout = 5000) {
+		return new Promise((resolve) => {
+			if (this._pubsub?.getSubscribers(topic)?.includes(peerId)) {
+				resolve(true);
+				return;
+			}
+
+			const timeoutId = setTimeout(() => {
+				resolve(false);
+			}, timeout);
+
+			const subscriptionChangeListener = (
+				e: CustomEvent<SubscriptionChangeData>,
+			) => {
+				if (
+					e.detail.subscriptions.some(
+						(s) => s.topic === topic && e.detail.peerId === peerId,
+					)
+				) {
+					resolve(true);
+					this._pubsub?.removeEventListener(
+						"subscription-change",
+						subscriptionChangeListener,
+					);
+					clearTimeout(timeoutId);
+				}
+			};
+
+			this._pubsub?.addEventListener(
+				"subscription-change",
+				subscriptionChangeListener,
+			);
+		});
 	}
 
 	private _sortAddresses(a: Address, b: Address) {

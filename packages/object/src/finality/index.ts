@@ -154,6 +154,7 @@ export class FinalityStore {
 				this.states.get(attestation.data)?.addSignature(peerId, attestation.signature, verify);
 			} catch (e) {
 				log.error("::finality::addSignatures", e);
+				throw e;
 			}
 		}
 	}

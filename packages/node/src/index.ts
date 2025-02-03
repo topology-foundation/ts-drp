@@ -1,12 +1,20 @@
 import type { GossipsubMessage } from "@chainsafe/libp2p-gossipsub";
 import type { EventCallback, StreamHandler } from "@libp2p/interface";
 import { Logger, type LoggerOptions } from "@ts-drp/logger";
-import { DRPNetworkNode, type DRPNetworkNodeConfig, NetworkPb } from "@ts-drp/network";
+import {
+	DRPNetworkNode,
+	type DRPNetworkNodeConfig,
+	NetworkPb,
+} from "@ts-drp/network";
 import { type ACL, type DRP, DRPObject } from "@ts-drp/object";
 
 import { drpMessagesHandler } from "./handlers.js";
 import * as operations from "./operations.js";
-import { type DRPCredentialConfig, DRPCredentialStore, DRPObjectStore } from "./store/index.js";
+import {
+	type DRPCredentialConfig,
+	DRPCredentialStore,
+	DRPObjectStore,
+} from "./store/index.js";
 
 // snake_casing to match the JSON config
 export interface DRPNodeConfig {
@@ -35,14 +43,14 @@ export class DRPNode {
 		await this.credentialStore.start();
 		await this.networkNode.start();
 		await this.networkNode.addMessageHandler(async ({ stream }) =>
-			drpMessagesHandler(this, stream)
+			drpMessagesHandler(this, stream),
 		);
 	}
 
 	async restart(config?: DRPNodeConfig): Promise<void> {
 		await this.networkNode.stop();
 		this.networkNode = new DRPNetworkNode(
-			config ? config.network_config : this.config?.network_config
+			config ? config.network_config : this.config?.network_config,
 		);
 		await this.start();
 	}
@@ -53,7 +61,7 @@ export class DRPNode {
 
 	addCustomGroupMessageHandler(
 		group: string,
-		handler: EventCallback<CustomEvent<GossipsubMessage>>
+		handler: EventCallback<CustomEvent<GossipsubMessage>>,
 	) {
 		this.networkNode.addGroupMessageHandler(group, handler);
 	}
@@ -67,7 +75,10 @@ export class DRPNode {
 		await this.networkNode.broadcastMessage(group, message);
 	}
 
-	async addCustomMessageHandler(protocol: string | string[], handler: StreamHandler) {
+	async addCustomMessageHandler(
+		protocol: string | string[],
+		handler: StreamHandler,
+	) {
 		await this.networkNode.addCustomMessageHandler(protocol, handler);
 	}
 
@@ -91,7 +102,9 @@ export class DRPNode {
 	}) {
 		const object = new DRPObject({
 			peerId: this.networkNode.peerId,
-			publicCredential: options.acl ? undefined : this.credentialStore.getPublicCredential(),
+			publicCredential: options.acl
+				? undefined
+				: this.credentialStore.getPublicCredential(),
 			acl: options.acl,
 			drp: options.drp,
 			id: options.id,
@@ -102,6 +115,10 @@ export class DRPNode {
 			await operations.syncObject(this, object.id, options.sync.peerId);
 		}
 		return object;
+	}
+
+	getObject(id: string) {
+		return this.objectStore.get(id);
 	}
 
 	/*
@@ -118,7 +135,12 @@ export class DRPNode {
 			peerId?: string;
 		};
 	}) {
-		const object = operations.connectObject(this, options.id, options.drp, options.sync?.peerId);
+		const object = operations.connectObject(
+			this,
+			options.id,
+			options.drp,
+			options.sync?.peerId,
+		);
 		return object;
 	}
 

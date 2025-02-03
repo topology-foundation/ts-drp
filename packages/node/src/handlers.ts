@@ -1,6 +1,12 @@
 import type { Stream } from "@libp2p/interface";
 import { NetworkPb, streamToUint8Array } from "@ts-drp/network";
-import { type ACL, type DRPObject, HashGraph, type ObjectPb, type Vertex } from "@ts-drp/object";
+import {
+	type ACL,
+	type DRPObject,
+	HashGraph,
+	type ObjectPb,
+	type Vertex,
+} from "@ts-drp/object";
 import { fromString as uint8ArrayFromString } from "uint8arrays/from-string";
 
 import { type DRPNode, log } from "./index.js";
@@ -10,7 +16,11 @@ import { deserializeStateMessage, serializeStateMessage } from "./utils.js";
   Handler for all DRP messages, including pubsub messages and direct messages
   You need to setup stream xor data
 */
-export async function drpMessagesHandler(node: DRPNode, stream?: Stream, data?: Uint8Array) {
+export async function drpMessagesHandler(
+	node: DRPNode,
+	stream?: Stream,
+	data?: Uint8Array,
+) {
 	let message: NetworkPb.Message;
 	if (stream) {
 		const byteArray = await streamToUint8Array(stream);
@@ -114,30 +124,54 @@ function fetchStateResponseHandler(node: DRPNode, data: Uint8Array) {
 	}
 
 	if (fetchStateResponse.aclState) {
-		object.aclStates.set(fetchStateResponse.vertexHash, aclState as ObjectPb.DRPState);
+		object.aclStates.set(
+			fetchStateResponse.vertexHash,
+			aclState as ObjectPb.DRPState,
+		);
 	}
 	if (fetchStateResponse.drpState) {
-		object.drpStates.set(fetchStateResponse.vertexHash, drpState as ObjectPb.DRPState);
+		object.drpStates.set(
+			fetchStateResponse.vertexHash,
+			drpState as ObjectPb.DRPState,
+		);
 	}
 }
 
-async function attestationUpdateHandler(node: DRPNode, sender: string, data: Uint8Array) {
+export async function attestationUpdateHandler(
+	node: DRPNode,
+	sender: string,
+	data: Uint8Array,
+): Promise<boolean> {
 	const attestationUpdate = NetworkPb.AttestationUpdate.decode(data);
 	const object = node.objectStore.get(attestationUpdate.objectId);
 	if (!object) {
 		log.error("::attestationUpdateHandler: Object not found");
-		return;
+		return false;
 	}
-	if ((object.acl as ACL).query_isFinalitySigner(sender)) {
-		object.finalityStore.addSignatures(sender, attestationUpdate.attestations);
+
+	try {
+		if ((object.acl as ACL).query_isFinalitySigner(sender)) {
+			object.finalityStore.addSignatures(
+				sender,
+				attestationUpdate.attestations,
+			);
+		}
+	} catch (e) {
+		log.error("::attestationUpdateHandler: ", e);
+		return false;
 	}
+	return true;
 }
 
 /*
   data: { id: string, operations: {nonce: string, fn: string, args: string[] }[] }
   operations array doesn't contain the full remote operations array
 */
-async function updateHandler(node: DRPNode, sender: string, data: Uint8Array) {
+export async function updateHandler(
+	node: DRPNode,
+	sender: string,
+	data: Uint8Array,
+) {
 	const updateMessage = NetworkPb.Update.decode(data);
 	const object = node.objectStore.get(updateMessage.objectId);
 	if (!object) {
@@ -149,7 +183,10 @@ async function updateHandler(node: DRPNode, sender: string, data: Uint8Array) {
 	if ((object.acl as ACL).permissionless) {
 		verifiedVertices = updateMessage.vertices;
 	} else {
-		verifiedVertices = await verifyIncomingVertices(object, updateMessage.vertices);
+		verifiedVertices = await verifyIncomingVertices(
+			object,
+			updateMessage.vertices,
+		);
 	}
 
 	const [merged, _] = object.merge(verifiedVertices);
@@ -172,7 +209,7 @@ async function updateHandler(node: DRPNode, sender: string, data: Uint8Array) {
 					NetworkPb.AttestationUpdate.create({
 						objectId: object.id,
 						attestations: attestations,
-					})
+					}),
 				).finish(),
 			});
 
@@ -191,13 +228,17 @@ async function updateHandler(node: DRPNode, sender: string, data: Uint8Array) {
   data: { id: string, operations: {nonce: string, fn: string, args: string[] }[] }
   operations array contain the full remote operations array
 */
-async function syncHandler(node: DRPNode, sender: string, data: Uint8Array) {
+export async function syncHandler(
+	node: DRPNode,
+	sender: string,
+	data: Uint8Array,
+): Promise<boolean> {
 	// (might send reject) <- TODO: when should we reject?
 	const syncMessage = NetworkPb.Sync.decode(data);
 	const object = node.objectStore.get(syncMessage.objectId);
 	if (!object) {
 		log.error("::syncHandler: Object not found");
-		return;
+		return false;
 	}
 
 	await signGeneratedVertices(node, object.vertices);
@@ -213,7 +254,7 @@ async function syncHandler(node: DRPNode, sender: string, data: Uint8Array) {
 		}
 	}
 
-	if (requested.size === 0 && requesting.length === 0) return;
+	if (requested.size === 0 && requesting.length === 0) return true;
 
 	const attestations = getAttestations(object, [...requested]);
 
@@ -227,31 +268,40 @@ async function syncHandler(node: DRPNode, sender: string, data: Uint8Array) {
 				requested: [...requested],
 				attestations,
 				requesting,
-			})
+			}),
 		).finish(),
 	});
+
 	node.networkNode.sendMessage(sender, message).catch((e) => {
 		log.error("::syncHandler: Error sending message", e);
 	});
+	return true;
 }
 
 /*
   data: { id: string, operations: {nonce: string, fn: string, args: string[] }[] }
   operations array contain the full remote operations array
 */
-async function syncAcceptHandler(node: DRPNode, sender: string, data: Uint8Array) {
+export async function syncAcceptHandler(
+	node: DRPNode,
+	sender: string,
+	data: Uint8Array,
+): Promise<boolean> {
 	const syncAcceptMessage = NetworkPb.SyncAccept.decode(data);
 	const object = node.objectStore.get(syncAcceptMessage.objectId);
 	if (!object) {
 		log.error("::syncAcceptHandler: Object not found");
-		return;
+		return false;
 	}
 
 	let verifiedVertices: Vertex[] = [];
 	if ((object.acl as ACL).permissionless) {
 		verifiedVertices = syncAcceptMessage.requested;
 	} else {
-		verifiedVertices = await verifyIncomingVertices(object, syncAcceptMessage.requested);
+		verifiedVertices = await verifyIncomingVertices(
+			object,
+			syncAcceptMessage.requested,
+		);
 	}
 
 	if (verifiedVertices.length !== 0) {
@@ -272,7 +322,7 @@ async function syncAcceptHandler(node: DRPNode, sender: string, data: Uint8Array
 		}
 	}
 
-	if (requested.length === 0) return;
+	if (requested.length === 0) return false;
 
 	const attestations = getAttestations(object, requested);
 
@@ -285,12 +335,13 @@ async function syncAcceptHandler(node: DRPNode, sender: string, data: Uint8Array
 				requested,
 				attestations,
 				requesting: [],
-			})
+			}),
 		).finish(),
 	});
 	node.networkNode.sendMessage(sender, message).catch((e) => {
 		log.error("::syncAcceptHandler: Error sending message", e);
 	});
+	return true;
 }
 
 /* data: { id: string } */
@@ -305,7 +356,7 @@ export function drpObjectChangesHandler(
 	node: DRPNode,
 	obj: DRPObject,
 	originFn: string,
-	vertices: ObjectPb.Vertex[]
+	vertices: ObjectPb.Vertex[],
 ) {
 	switch (originFn) {
 		case "merge":
@@ -326,11 +377,14 @@ export function drpObjectChangesHandler(
 								objectId: obj.id,
 								vertices: vertices,
 								attestations: attestations,
-							})
+							}),
 						).finish(),
 					});
 					node.networkNode.broadcastMessage(obj.id, message).catch((e) => {
-						log.error("::drpObjectChangesHandler: Error broadcasting message", e);
+						log.error(
+							"::drpObjectChangesHandler: Error broadcasting message",
+							e,
+						);
 					});
 				})
 				.catch((e) => {
@@ -345,13 +399,22 @@ export function drpObjectChangesHandler(
 
 export async function signGeneratedVertices(node: DRPNode, vertices: Vertex[]) {
 	const signPromises = vertices.map(async (vertex) => {
-		if (vertex.peerId !== node.networkNode.peerId || vertex.signature.length !== 0) {
+		if (
+			vertex.peerId !== node.networkNode.peerId ||
+			vertex.signature.length !== 0
+		) {
 			return;
 		}
 		try {
-			vertex.signature = await node.credentialStore.signWithEd25519(vertex.hash);
+			vertex.signature = await node.credentialStore.signWithEd25519(
+				vertex.hash,
+			);
 		} catch (error) {
-			log.error("::signGeneratedVertices: Error signing vertex:", vertex.hash, error);
+			log.error(
+				"::signGeneratedVertices: Error signing vertex:",
+				vertex.hash,
+				error,
+			);
 		}
 	});
 
@@ -359,7 +422,11 @@ export async function signGeneratedVertices(node: DRPNode, vertices: Vertex[]) {
 }
 
 // Signs the vertices. Returns the attestations
-export function signFinalityVertices(node: DRPNode, obj: DRPObject, vertices: Vertex[]) {
+export function signFinalityVertices(
+	node: DRPNode,
+	obj: DRPObject,
+	vertices: Vertex[],
+) {
 	if (!(obj.acl as ACL).query_isFinalitySigner(node.networkNode.peerId)) {
 		return [];
 	}
@@ -371,7 +438,7 @@ export function signFinalityVertices(node: DRPNode, obj: DRPObject, vertices: Ve
 function generateAttestations(
 	node: DRPNode,
 	object: DRPObject,
-	vertices: Vertex[]
+	vertices: Vertex[],
 ): ObjectPb.Attestation[] {
 	// Two condition:
 	// - The node can sign the vertex
@@ -379,7 +446,7 @@ function generateAttestations(
 	const goodVertices = vertices.filter(
 		(v) =>
 			object.finalityStore.canSign(node.networkNode.peerId, v.hash) &&
-			!object.finalityStore.signed(node.networkNode.peerId, v.hash)
+			!object.finalityStore.signed(node.networkNode.peerId, v.hash),
 	);
 	return goodVertices.map((v) => ({
 		data: v.hash,
@@ -387,7 +454,10 @@ function generateAttestations(
 	}));
 }
 
-function getAttestations(object: DRPObject, vertices: Vertex[]): ObjectPb.AggregatedAttestation[] {
+function getAttestations(
+	object: DRPObject,
+	vertices: Vertex[],
+): ObjectPb.AggregatedAttestation[] {
 	return vertices
 		.map((v) => object.finalityStore.getAttestation(v.hash))
 		.filter((a) => a !== undefined);
@@ -395,7 +465,7 @@ function getAttestations(object: DRPObject, vertices: Vertex[]): ObjectPb.Aggreg
 
 export async function verifyIncomingVertices(
 	object: DRPObject,
-	incomingVertices: ObjectPb.Vertex[]
+	incomingVertices: ObjectPb.Vertex[],
 ): Promise<Vertex[]> {
 	const vertices: Vertex[] = incomingVertices.map((vertex) => {
 		return {
@@ -426,7 +496,10 @@ export async function verifyIncomingVertices(
 			return null;
 		}
 
-		const publicKeyBytes = uint8ArrayFromString(publicKey.ed25519PublicKey, "base64");
+		const publicKeyBytes = uint8ArrayFromString(
+			publicKey.ed25519PublicKey,
+			"base64",
+		);
 		const data = uint8ArrayFromString(vertex.hash);
 
 		try {
@@ -435,14 +508,14 @@ export async function verifyIncomingVertices(
 				publicKeyBytes,
 				{ name: "Ed25519" },
 				true,
-				["verify"]
+				["verify"],
 			);
 
 			const isValid = await crypto.subtle.verify(
 				{ name: "Ed25519" },
 				cryptoKey,
 				vertex.signature,
-				data
+				data,
 			);
 
 			return isValid ? vertex : null;
@@ -453,7 +526,7 @@ export async function verifyIncomingVertices(
 	});
 
 	const verifiedVertices = (await Promise.all(verificationPromises)).filter(
-		(vertex) => vertex !== null
+		(vertex: Vertex | null) => vertex !== null,
 	);
 
 	return verifiedVertices;
