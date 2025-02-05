@@ -178,6 +178,7 @@ export class DRPNetworkNode {
 			},
 			connectionManager: {
 				addressSorter: this._sortAddresses,
+				dialTimeout: 100000,
 			},
 			connectionEncrypters: [noise()],
 			connectionGater: {
