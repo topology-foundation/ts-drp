@@ -93,7 +93,7 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 		this.drpStates = new Map([[HashGraph.rootHash, ObjectPb.DRPState.create()]]);
 		this._setRootStates();
 
-		this.finalityStore = new FinalityStore(options.config?.finality_config);
+		this.finalityStore = new FinalityStore(this, options.config?.finality_config);
 		this.originalObjectACL = cloneDeep(objAcl);
 		this.originalDRP = cloneDeep(options.drp);
 	}
