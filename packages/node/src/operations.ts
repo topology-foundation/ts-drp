@@ -1,4 +1,4 @@
-import { type DRP, DRPObject, HashGraph } from "@ts-drp/object";
+import { type DRP, DRPObject, DRPObjectConfig, HashGraph } from "@ts-drp/object";
 import { FetchState, Message, MessageType, Sync } from "@ts-drp/types";
 
 import { drpMessagesHandler, drpObjectChangesHandler } from "./handlers.js";
@@ -15,12 +15,14 @@ export async function connectObject(
 	node: DRPNode,
 	id: string,
 	drp?: DRP,
-	peerId?: string
+	peerId?: string,
+	config?: DRPObjectConfig
 ): Promise<DRPObject> {
 	const object = DRPObject.createObject({
 		peerId: node.networkNode.peerId,
 		id,
 		drp,
+		config,
 	});
 	node.objectStore.put(id, object);
 
