@@ -1,5 +1,5 @@
 import { NetworkPb } from "@ts-drp/network";
-import { type DRP, DRPObject, HashGraph } from "@ts-drp/object";
+import { type DRP, DRPObject, DRPObjectConfig, HashGraph } from "@ts-drp/object";
 
 import { drpMessagesHandler, drpObjectChangesHandler } from "./handlers.js";
 import type { DRPNode } from "./index.js";
@@ -15,12 +15,14 @@ export async function connectObject(
 	node: DRPNode,
 	id: string,
 	drp?: DRP,
-	peerId?: string
+	peerId?: string,
+	config?: DRPObjectConfig
 ): Promise<DRPObject> {
 	const object = DRPObject.createObject({
 		peerId: node.networkNode.peerId,
 		id,
 		drp,
+		config,
 	});
 	node.objectStore.put(id, object);
 

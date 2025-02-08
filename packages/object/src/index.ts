@@ -114,7 +114,12 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 		this.vertices = this.hashGraph.getAllVertices();
 	}
 
-	static createObject(options: { peerId: string; id?: string; drp?: DRP }) {
+	static createObject(options: {
+		peerId: string;
+		id?: string;
+		drp?: DRP;
+		config?: DRPObjectConfig;
+	}) {
 		const aclObj = new ObjectACL({
 			admins: new Map(),
 			permissionless: true,
@@ -124,6 +129,7 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 			id: options.id,
 			acl: aclObj,
 			drp: options.drp,
+			config: options.config,
 		});
 		return object;
 	}
