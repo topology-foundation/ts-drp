@@ -1,4 +1,11 @@
-import { type DRP, DRPObject, DRPObjectConfig, HashGraph } from "@ts-drp/object";
+import {
+	type DRP,
+	ObjectACL,
+	type ACL,
+	DRPObject,
+	DRPObjectConfig,
+	HashGraph,
+} from "@ts-drp/object";
 import { FetchState, Message, MessageType, Sync } from "@ts-drp/types";
 
 import { drpMessagesHandler, drpObjectChangesHandler } from "./handlers.js";
@@ -14,13 +21,21 @@ export function createObject(node: DRPNode, object: DRPObject) {
 export async function connectObject(
 	node: DRPNode,
 	id: string,
+	acl?: ACL,
 	drp?: DRP,
 	peerId?: string,
 	config?: DRPObjectConfig
 ): Promise<DRPObject> {
-	const object = DRPObject.createObject({
+	const objAcl =
+		acl ??
+		new ObjectACL({
+			admins: new Map(),
+			permissionless: true,
+		});
+	const object = new DRPObject({
 		peerId: node.networkNode.peerId,
 		id,
+		acl: objAcl,
 		drp,
 		config,
 	});
