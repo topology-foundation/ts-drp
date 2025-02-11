@@ -1,4 +1,4 @@
-import { type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -182,7 +182,7 @@ async function getPeerID(page: Page) {
 //});
 
 test.describe("laggy grid", () => {
-	const NUM_PEERS = 3;
+	const NUM_PEERS = 5;
 	const NUM_OPS = 100;
 	const pages: Page[] = [];
 	const peerIds: string[] = [];
@@ -223,6 +223,11 @@ test.describe("laggy grid", () => {
 		for (const page of pages) {
 			await page.fill(DRPIdInputSelector, drpId);
 			await page.click(joinGridButtonSelector);
+		}
+
+		await expect(pages[0].locator(DRPIdInputSelector)).toHaveValue(drpId);
+		for (let i = 0; i < NUM_PEERS; i++) {
+			await pages[0].locator(`div[data-glowing-peer-id="${peerIds[i]}"]`).waitFor({ state: "visible", timeout: 10000 });
 		}
 
 		for (let i = 0; i < NUM_OPS; i++) {
