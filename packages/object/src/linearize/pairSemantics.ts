@@ -8,6 +8,9 @@ export function linearizePairSemantics(
 ): Operation[] {
 	const order: Hash[] = hashGraph.topologicalSort(true, origin, subgraph);
 	const dropped = new Array(order.length).fill(false);
+	console.log("hashgraph:", hashGraph);
+	console.log("order:", order);
+	console.log("subgraph:", subgraph);
 	const result = [];
 	// alway remove the first operation
 	let i = 1;
