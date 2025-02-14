@@ -21,6 +21,7 @@ import {
 	type LcaAndOperations,
 } from "./interface.js";
 import * as ObjectPb from "./proto/drp/object/v1/object_pb.js";
+import { computeHash } from "./utils/computeHash.js";
 import { ObjectSet } from "./utils/objectSet.js";
 
 export * as ObjectPb from "./proto/drp/object/v1/object_pb.js";
@@ -40,7 +41,6 @@ export let log: Logger;
 
 export class DRPObject implements ObjectPb.DRPObjectBase {
 	id: string;
-	peerId: string;
 	vertices: ObjectPb.Vertex[] = [];
 	acl?: ProxyHandler<ACL>;
 	drp?: ProxyHandler<DRP>;
@@ -66,7 +66,6 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 			throw new Error("Either publicCredential or acl must be provided to create a DRPObject");
 		}
 
-		this.peerId = options.peerId;
 		log = new Logger("drp::object", options.config?.log_config);
 		this.id =
 			options.id ??
@@ -84,9 +83,9 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 			});
 		this.acl = new Proxy(objAcl, this.proxyDRPHandler(DrpType.ACL));
 		if (options.drp) {
-			this._initLocalDrpInstance(options.drp, objAcl);
+			this._initLocalDrpInstance(options.peerId, options.drp, objAcl);
 		} else {
-			this._initNonLocalDrpInstance(objAcl);
+			this._initNonLocalDrpInstance(options.peerId, objAcl);
 		}
 
 		this.aclStates = new Map([[HashGraph.rootHash, ObjectPb.DRPState.create()]]);
@@ -98,10 +97,10 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 		this.originalDRP = cloneDeep(options.drp);
 	}
 
-	private _initLocalDrpInstance(drp: DRP, acl: DRP) {
+	private _initLocalDrpInstance(peerId: string, drp: DRP, acl: DRP) {
 		this.drp = new Proxy(drp, this.proxyDRPHandler(DrpType.DRP));
 		this.hashGraph = new HashGraph(
-			this.peerId,
+			peerId,
 			acl.resolveConflicts.bind(acl),
 			drp.resolveConflicts.bind(drp),
 			drp.semanticsType
@@ -109,8 +108,8 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 		this.vertices = this.hashGraph.getAllVertices();
 	}
 
-	private _initNonLocalDrpInstance(acl: DRP) {
-		this.hashGraph = new HashGraph(this.peerId, acl.resolveConflicts.bind(this.acl));
+	private _initNonLocalDrpInstance(peerId: string, acl: DRP) {
+		this.hashGraph = new HashGraph(peerId, acl.resolveConflicts.bind(this.acl));
 		this.vertices = this.hashGraph.getAllVertices();
 	}
 
@@ -203,16 +202,9 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 			return;
 		}
 
-		const vertexTimestamp = Date.now();
 		const vertexOperation = { drpType: drpType, opType: fn, value: args };
 		const vertexDependencies = this.hashGraph.getFrontier();
-		const vertex = ObjectPb.Vertex.create({
-			hash: computeHash(this.peerId, vertexOperation, vertexDependencies, vertexTimestamp),
-			peerId: this.peerId,
-			operation: vertexOperation,
-			dependencies: vertexDependencies,
-			timestamp: vertexTimestamp,
-		});
+		const vertex = this.hashGraph.createVertex(vertexOperation, vertexDependencies);
 		this.hashGraph.addToFrontier(vertex);
 
 		if (drpType === DrpType.DRP) {
@@ -593,17 +585,6 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 		this.aclStates.set(HashGraph.rootHash, { state: aclState });
 		this.drpStates.set(HashGraph.rootHash, { state: drpState });
 	}
-}
-
-function computeHash(
-	peerId: string,
-	operation: Operation | undefined,
-	deps: Hash[],
-	timestamp: number
-): Hash {
-	const serialized = JSON.stringify({ operation, deps, peerId, timestamp });
-	const hash = crypto.createHash("sha256").update(serialized).digest("hex");
-	return hash;
 }
 
 export function newVertex(
