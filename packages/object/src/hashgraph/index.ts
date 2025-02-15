@@ -1,8 +1,9 @@
-import { log } from "../index.js";
+import { log, ObjectPb } from "../index.js";
 import { BitSet } from "./bitset.js";
 import { linearizeMultipleSemantics } from "../linearize/multipleSemantics.js";
 import { linearizePairSemantics } from "../linearize/pairSemantics.js";
 import type { Vertex_Operation as Operation, Vertex } from "../proto/drp/object/v1/object_pb.js";
+import { computeHash } from "../utils/computeHash.js";
 import { ObjectSet } from "../utils/objectSet.js";
 
 // Reexporting the Vertex and Operation types from the protobuf file
@@ -102,6 +103,17 @@ export class HashGraph {
 		return this.resolveConflictsDRP
 			? this.resolveConflictsDRP(vertices)
 			: { action: ActionType.Nop };
+	}
+
+	createVertex(vertexOperation: Operation, vertexDependencies: Hash[]): ObjectPb.Vertex {
+		const vertexTimestamp = Date.now();
+		return ObjectPb.Vertex.create({
+			hash: computeHash(this.peerId, vertexOperation, vertexDependencies, vertexTimestamp),
+			peerId: this.peerId,
+			operation: vertexOperation,
+			dependencies: vertexDependencies,
+			timestamp: vertexTimestamp,
+		});
 	}
 
 	addToFrontier(vertex: Vertex) {
