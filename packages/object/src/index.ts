@@ -230,7 +230,7 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 
 		this._setDRPState(vertex, preComputeLca, this._getDRPState(drp));
 		this._setObjectACLState(vertex, preComputeLca, this._getDRPState(acl));
-		this._initializeFinalityState(vertex.hash);
+		this._initializeFinalityState(vertex.hash, acl);
 
 		this.vertices.push(vertex);
 		this._notify("callFn", [vertex]);
@@ -311,7 +311,7 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 				this._setDRPState(vertex, preComputeLca, this._getDRPState(drp));
 				this._setObjectACLState(vertex, preComputeLca, this._getDRPState(acl));
 				this.hashGraph.addVertex(vertex);
-				this._initializeFinalityState(vertex.hash);
+				this._initializeFinalityState(vertex.hash, acl);
 				newVertices.push(vertex);
 			} catch (_) {
 				missing.push(vertex.hash);
@@ -364,21 +364,8 @@ export class DRPObject implements ObjectPb.DRPObjectBase {
 	}
 
 	// initialize the attestation store for the given vertex hash
-	private _initializeFinalityState(hash: Hash) {
-		if (!this.acl || !this.originalObjectACL) {
-			throw new Error("ObjectACL is undefined");
-		}
-		const fetchedState = this.aclStates.get(hash);
-		if (fetchedState !== undefined) {
-			const state = cloneDeep(fetchedState);
-			const acl = cloneDeep(this.originalObjectACL);
-
-			for (const entry of state.state) {
-				acl[entry.key] = entry.value;
-			}
-			// signer set equals writer set
-			this.finalityStore.initializeState(hash, acl.query_getFinalitySigners());
-		}
+	private _initializeFinalityState(hash: Hash, acl: ACL) {
+		this.finalityStore.initializeState(hash, acl.query_getFinalitySigners());
 	}
 
 	// check if the given peer has write permission
