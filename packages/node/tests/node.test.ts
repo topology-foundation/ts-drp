@@ -2,7 +2,7 @@ import bls from "@chainsafe/bls/herumi";
 import { SetDRP } from "@ts-drp/blueprints";
 import { ACLGroup, ObjectACL } from "@ts-drp/object";
 import { type DRP, DRPObject, DrpType, type Vertex } from "@ts-drp/object";
-import { beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
 	signFinalityVertices,
@@ -228,5 +228,48 @@ describe("DRPNode voting tests", () => {
 				nodeB.credentialStore.signWithBls(V1.hash),
 			])
 		);
+	});
+});
+
+describe("DRPNode with rpc", () => {
+	let drp: DRP;
+	let drpNode: DRPNode;
+	let drpObject: DRPObject;
+
+	beforeAll(async () => {
+		drpNode = new DRPNode();
+		await drpNode.start();
+		vi.useFakeTimers();
+	});
+	beforeEach(async () => {
+		drp = new SetDRP();
+		const acl = new ObjectACL({
+			admins: new Map([
+				[drpNode.networkNode.peerId, drpNode.credentialStore.getPublicCredential()],
+			]),
+		});
+		drpObject = new DRPObject({ peerId: drpNode.networkNode.peerId, acl, drp });
+	});
+
+	test("connectObject test", async () => {
+		const drpObjectConnected = await drpNode.connectObject({ id: drpObject.id, drp });
+		expect(drpObjectConnected.id).toEqual(drpObject.id);
+		vi.advanceTimersByTime(3000);
+	});
+
+	test("unsubscribeObject test", async () => {
+		await drpNode.unsubscribeObject(drpObject.id);
+	});
+
+	test("unsubscribeObject test with purge", async () => {
+		await drpNode.unsubscribeObject(drpObject.id, true);
+	});
+
+	test("syncObject test", async () => {
+		await drpNode.syncObject(drpObject.id);
+	});
+
+	test("Node restart", async () => {
+		await drpNode.restart();
 	});
 });
