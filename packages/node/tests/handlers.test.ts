@@ -5,7 +5,7 @@ import { DrpType } from "@ts-drp/object";
 import { type DRPObject, ObjectACL } from "@ts-drp/object";
 import { MessagesPb as NetworkPb } from "@ts-drp/types";
 import { raceEvent } from "race-event";
-import { beforeAll, describe, expect, test, afterAll, vi, beforeEach } from "vitest";
+import { beforeAll, describe, expect, test, afterAll, vi } from "vitest";
 
 import { drpMessagesHandler, signGeneratedVertices } from "../src/handlers.js";
 import { DRPNode } from "../src/index.js";
