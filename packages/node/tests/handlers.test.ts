@@ -181,6 +181,25 @@ describe("Handle message correctly", () => {
 		]);
 	});
 
+	test("should handle fetch state", async () => {
+		const message = NetworkPb.Message.create({
+			sender: node1.networkNode.peerId,
+			type: NetworkPb.MessageType.MESSAGE_TYPE_FETCH_STATE,
+			data: NetworkPb.Sync.encode(
+				NetworkPb.Sync.create({
+					objectId: drpObject.id,
+					vertexHashes: node1.objectStore.get(drpObject.id)?.vertices.map((vertex) => vertex.hash),
+				})
+			).finish(),
+		});
+
+		await node1.networkNode.sendMessage(node2.networkNode.peerId, message);
+		await new Promise((resolve) => setTimeout(resolve, 500));
+
+		// auto sync accept
+		expect(drpObject.vertices.length).toBe(3);
+	});
+
 	test("should handle sync message correctly", async () => {
 		const node1DrpObject = node1.objectStore.get(drpObject.id);
 		expect(node1DrpObject).toBeDefined();
