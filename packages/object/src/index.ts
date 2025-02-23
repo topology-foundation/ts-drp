@@ -111,15 +111,15 @@ export class DRPObject implements DRPObjectBase {
 		this.drp = new Proxy(drp, this.proxyDRPHandler(DrpType.DRP));
 		this.hashGraph = new HashGraph(
 			peerId,
-			acl.resolveConflicts.bind(acl),
-			drp.resolveConflicts.bind(drp),
+			acl.resolveConflicts?.bind(acl),
+			drp.resolveConflicts?.bind(drp),
 			drp.semanticsType
 		);
 		this.vertices = this.hashGraph.getAllVertices();
 	}
 
 	private _initNonLocalDrpInstance(peerId: string, acl: DRP) {
-		this.hashGraph = new HashGraph(peerId, acl.resolveConflicts.bind(this.acl));
+		this.hashGraph = new HashGraph(peerId, acl.resolveConflicts?.bind(this.acl));
 		this.vertices = this.hashGraph.getAllVertices();
 	}
 
